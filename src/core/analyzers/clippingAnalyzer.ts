@@ -1,12 +1,64 @@
-import { ClippingAttachment, Spine } from '@esotericsoftware/spine-pixi-v8';
+import { Animation, ClippingAttachment, Spine } from '@esotericsoftware/spine-pixi-v8';
 import { PERFORMANCE_FACTORS } from '../constants/performanceFactors';
 import { calculateClippingScore, getScoreColor } from '../utils/scoreCalculator';
+import { ActiveComponents } from '../utils/animationUtils';
 import i18n from '../../i18n';
 
 /**
- * Analyzes clipping masks in a Spine instance
+ * Analyzes clipping masks for a specific animation
  * @param spineInstance The Spine instance to analyze
- * @returns HTML output and metrics for clipping mask analysis
+ * @param animation The animation to analyze
+ * @param activeComponents Components active in this animation
+ * @returns Metrics for clipping analysis
+ */
+export function analyzeClippingForAnimation(
+  spineInstance: Spine,
+  animation: Animation,
+  activeComponents: ActiveComponents
+): any {
+  const skeleton = spineInstance.skeleton;
+  
+  let activeMaskCount = 0;
+  let totalVertices = 0;
+  let complexMasks = 0;
+  
+  console.log(`Analyzing clipping for ${animation.name}, active slots: ${activeComponents.slots.size}`);
+  
+  // Only analyze clipping masks in active slots
+  activeComponents.slots.forEach(slotName => {
+    const slot = skeleton.slots.find((s: any) => s.data.name === slotName);
+    
+    if (slot) {
+      const attachment = slot.getAttachment();
+      
+      if (attachment && attachment instanceof ClippingAttachment) {
+        activeMaskCount++;
+        const verticesCount = attachment.worldVerticesLength / 2;
+        totalVertices += verticesCount;
+        
+        if (verticesCount > 4) {
+          complexMasks++;
+        }
+        
+        console.log(`Found clipping mask in slot ${slotName} with ${verticesCount} vertices`);
+      }
+    }
+  });
+  
+  // Calculate clipping score
+  const clippingScore = calculateClippingScore(activeMaskCount, totalVertices, complexMasks);
+  
+  return {
+    activeMaskCount,
+    maskCount: activeMaskCount, // For compatibility
+    totalVertices,
+    complexMasks,
+    score: clippingScore
+  };
+}
+
+/**
+ * Original function for global clipping analysis (kept for backward compatibility)
  */
 export function analyzeClipping(spineInstance: Spine): { html: string, metrics: any } {
   const masks: [string, number][] = [];

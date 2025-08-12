@@ -1,12 +1,66 @@
-import { BlendMode, Spine } from "@esotericsoftware/spine-pixi-v8";
+import { Animation, BlendMode, Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
 import { calculateBlendModeScore, getScoreColor } from "../utils/scoreCalculator";
+import { ActiveComponents } from "../utils/animationUtils";
 import i18n from "../../i18n";
 
 /**
- * Analyzes blend modes in a Spine instance
+ * Analyzes blend modes for a specific animation
  * @param spineInstance The Spine instance to analyze
- * @returns HTML output and metrics for blend mode analysis
+ * @param animation The animation to analyze
+ * @param activeComponents Components active in this animation
+ * @returns Metrics for blend mode analysis
+ */
+export function analyzeBlendModesForAnimation(
+  spineInstance: Spine,
+  animation: Animation,
+  activeComponents: ActiveComponents
+): any {
+  const skeleton = spineInstance.skeleton;
+  
+  let activeNonNormalCount = 0;
+  let activeAdditiveCount = 0;
+  let activeMultiplyCount = 0;
+  
+  console.log(`Analyzing blend modes for ${animation.name}, active slots: ${activeComponents.slots.size}`);
+  
+  // Only analyze blend modes in active slots
+  activeComponents.slots.forEach(slotName => {
+    const slot = skeleton.slots.find((s: any) => s.data.name === slotName);
+    
+    if (slot) {
+      const blendMode = slot.data.blendMode;
+      
+      if (blendMode !== BlendMode.Normal) {
+        activeNonNormalCount++;
+        
+        if (blendMode === BlendMode.Additive) {
+          activeAdditiveCount++;
+        } else if (blendMode === BlendMode.Multiply) {
+          activeMultiplyCount++;
+        }
+        
+        console.log(`Found non-normal blend mode in slot ${slotName}: ${BlendMode[blendMode]}`);
+      }
+    }
+  });
+  
+  // Calculate blend mode score
+  const blendModeScore = calculateBlendModeScore(activeNonNormalCount, activeAdditiveCount);
+  
+  return {
+    activeNonNormalCount,
+    nonNormalBlendModeCount: activeNonNormalCount, // For compatibility
+    activeAdditiveCount,
+    additiveCount: activeAdditiveCount, // For compatibility
+    activeMultiplyCount,
+    multiplyCount: activeMultiplyCount, // For compatibility
+    score: blendModeScore
+  };
+}
+
+/**
+ * Original function for global blend mode analysis (kept for backward compatibility)
  */
 export function analyzeBlendModes(spineInstance: Spine): { html: string, metrics: any } {
   const blendModeCount = new Map<BlendMode, number>();

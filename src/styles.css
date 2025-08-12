@@ -1145,7 +1145,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 36px;
   padding: 0 12px;
   background-color: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1360,7 +1359,6 @@ body {
 }
 
 /* Ensure consistent height for all controls */
-.toggle-switch,
 .modern-select,
 .icon-button {
   height: 36px;
@@ -1402,3 +1400,195 @@ body {
 .animation-settings .toggle-switch-container {
   min-width: auto;
 }
+
+/* Median Score Display */
+.median-score {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.median-score h4 {
+  margin-bottom: 12px;
+  font-size: 1.2em;
+  color: #e0e0e0;
+}
+
+/* Animation Overview Section */
+.animation-overview {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.overview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 0.9em;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Inline Score Display for Tables */
+.inline-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-score span {
+  min-width: 50px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.mini-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 80px;
+}
+
+.mini-progress-bar .progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* Per-Animation Analysis Sections */
+.mesh-analysis,
+.clipping-analysis,
+.blend-mode-analysis,
+.physics-analysis {
+  margin-bottom: 32px;
+}
+
+/* Enhanced Table Styling for Animation Data */
+.benchmark-table tbody tr.row-warning {
+  background: rgba(255, 179, 0, 0.1);
+  border-left: 3px solid #ffb300;
+}
+
+.benchmark-table tbody tr.row-danger {
+  background: rgba(229, 57, 53, 0.1);
+  border-left: 3px solid #e53935;
+}
+
+/* Animation Performance Labels */
+.performance-impact {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.impact-minimal { 
+  background: rgba(76, 175, 80, 0.2); 
+  color: #4caf50; 
+}
+
+.impact-low { 
+  background: rgba(139, 195, 74, 0.2); 
+  color: #8bc34a; 
+}
+
+.impact-moderate { 
+  background: rgba(255, 179, 0, 0.2); 
+  color: #ffb300; 
+}
+
+.impact-high { 
+  background: rgba(245, 124, 0, 0.2); 
+  color: #f57c00; 
+}
+
+.impact-very-high { 
+  background: rgba(229, 57, 53, 0.2); 
+  color: #e53935; 
+}
+
+/* Responsive Design for Animation Tables */
+@media (max-width: 768px) {
+  .overview-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .inline-score {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .mini-progress-bar {
+    width: 100%;
+  }
+}
+
+/* Enhanced Visual Hierarchy */
+.analysis-notes {
+  background: rgba(0, 150, 255, 0.05);
+  border-left: 3px solid #0096ff;
+  padding: 16px;
+  margin-top: 24px;
+  border-radius: 0 8px 8px 0;
+}
+
+.analysis-notes h4 {
+  margin-top: 0;
+  color: #0096ff;
+}
+
+.analysis-notes ul {
+  margin-bottom: 0;
+}
+
+/* Animation Duration Display */
+.animation-duration {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.9em;
+  color: #999;
+}
+
+/* Feature Tags */
+.feature-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.feature-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.feature-tag.physics { color: #ff00ff; }
+.feature-tag.ik { color: #00ffff; }
+.feature-tag.clipping { color: #ff1493; }
+.feature-tag.blend { color: #ffa500; }

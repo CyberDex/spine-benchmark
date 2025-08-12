@@ -1,12 +1,105 @@
-import { DeformTimeline, MeshAttachment, Spine } from "@esotericsoftware/spine-pixi-v8";
+import { Animation, DeformTimeline, MeshAttachment, Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
 import { calculateMeshScore, getScoreColor } from "../utils/scoreCalculator";
+import { ActiveComponents } from "../utils/animationUtils";
 import i18n from "../../i18n";
 
 /**
- * Analyzes mesh attachments in a Spine instance
+ * Analyzes mesh attachments for a specific animation
  * @param spineInstance The Spine instance to analyze
- * @returns HTML output and metrics for mesh analysis
+ * @param animation The animation to analyze
+ * @param activeComponents Components active in this animation
+ * @returns Metrics for mesh analysis
+ */
+export function analyzeMeshesForAnimation(
+  spineInstance: Spine,
+  animation: Animation,
+  activeComponents: ActiveComponents
+): any {
+  const skeleton = spineInstance.skeleton;
+  
+  let activeMeshCount = 0;
+  let totalVertices = 0;
+  let weightedMeshCount = 0;
+  let deformedMeshCount = 0;
+  
+  const deformedMeshes = new Set<string>();
+  
+  // Check for deformed meshes in this animation
+  animation.timelines.forEach(timeline => {
+    if (timeline instanceof DeformTimeline) {
+      const slotIndex = (timeline as any).slotIndex;
+      const slot = skeleton.slots[slotIndex];
+      const attachment = (timeline as any).attachment;
+      
+      if (slot && attachment && attachment instanceof MeshAttachment) {
+        deformedMeshes.add(`${slot.data.name}:${attachment.name}`);
+      }
+    }
+  });
+  
+  console.log(`Analyzing ${activeComponents.meshes.size} active meshes for animation: ${animation.name}`);
+  
+  // Analyze only active meshes in this animation
+  activeComponents.meshes.forEach(meshId => {
+    const [slotName, ...attachmentNameParts] = meshId.split(':');
+    const attachmentName = attachmentNameParts.join(':'); // Handle attachment names with colons
+    const slot = skeleton.slots.find((s: any) => s.data.name === slotName);
+    
+    if (slot) {
+      // Try to get the attachment directly from the slot first
+      const currentAttachment = slot.getAttachment();
+      let attachment = null;
+      
+      if (currentAttachment && currentAttachment.name === attachmentName) {
+        attachment = currentAttachment;
+      } else {
+        // Try to get from skeleton data
+        attachment = skeleton.getAttachment(slot.data.index, attachmentName);
+      }
+      
+      if (attachment && attachment instanceof MeshAttachment) {
+        activeMeshCount++;
+        
+        // Count vertices
+        const vertexCount = attachment.worldVerticesLength / 2;
+        totalVertices += vertexCount;
+        
+        // Check if mesh has bone weights
+        if (attachment.bones?.length) {
+          weightedMeshCount++;
+        }
+        
+        // Check if mesh is deformed in this animation
+        if (deformedMeshes.has(meshId)) {
+          deformedMeshCount++;
+        }
+      }
+    }
+  });
+  
+  // Calculate mesh complexity metrics
+  const meshComplexityMetrics = {
+    activeMeshCount,
+    totalMeshCount: activeMeshCount, // For compatibility with score calculator
+    totalVertices,
+    weightedMeshCount,
+    deformedMeshCount,
+    avgVerticesPerMesh: activeMeshCount > 0 ? totalVertices / activeMeshCount : 0,
+    highVertexMeshes: 0, // Will be calculated if needed
+    complexMeshes: 0,    // Will be calculated if needed
+    score: 0
+  };
+  
+  // Calculate mesh score
+  const meshScore = calculateMeshScore(meshComplexityMetrics);
+  meshComplexityMetrics.score = meshScore;
+  
+  return meshComplexityMetrics;
+}
+
+/**
+ * Original function for global mesh analysis (kept for backward compatibility)
  */
 export function analyzeMeshes(spineInstance: Spine): { html: string, metrics: any } {
   const skeleton = spineInstance.skeleton;

@@ -1,12 +1,280 @@
-import { Spine } from "@esotericsoftware/spine-pixi-v8";
+import { Animation, Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
 import { getScoreColor } from "../utils/scoreCalculator";
+import { ActiveComponents } from "../utils/animationUtils";
 import i18n from "../../i18n";
 
 /**
- * Analyzes physics and other constraints in a Spine instance
+ * Analyzes constraints for a specific animation
  * @param spineInstance The Spine instance to analyze
- * @returns HTML output and metrics for constraints analysis
+ * @param animation The animation to analyze
+ * @param activeComponents Components active in this animation
+ * @returns Metrics for constraint analysis
+ */
+export function analyzePhysicsForAnimation(
+  spineInstance: Spine,
+  animation: Animation,
+  activeComponents: ActiveComponents
+): any {
+  const skeleton = spineInstance.skeleton;
+  
+  // Count active constraints in this animation
+  const activeIkCount = activeComponents.activeConstraints.ik.size;
+  const activeTransformCount = activeComponents.activeConstraints.transform.size;
+  const activePathCount = activeComponents.activeConstraints.path.size;
+  const activePhysicsCount = activeComponents.activeConstraints.physics.size;
+  
+  console.log(`Active constraints in ${animation.name}:`, {
+    ik: activeIkCount,
+    transform: activeTransformCount,
+    path: activePathCount,
+    physics: activePhysicsCount
+  });
+  
+  // Get detailed constraint data for active constraints
+  const ikData: any[] = [];
+  const transformData: any[] = [];
+  const pathData: any[] = [];
+  const physicsData: any[] = [];
+  
+  // Collect IK constraint data
+  skeleton.ikConstraints.forEach((constraint: any) => {
+    if (activeComponents.activeConstraints.ik.has(constraint.data.name)) {
+      ikData.push({
+        name: constraint.data.name,
+        bones: constraint.bones.map((bone: any) => bone.data.name),
+        mix: constraint.mix || constraint.data.mix || 1
+      });
+    }
+  });
+  
+  // Collect Transform constraint data
+  skeleton.transformConstraints.forEach((constraint: any) => {
+    if (activeComponents.activeConstraints.transform.has(constraint.data.name)) {
+      const affectedProps = [];
+      const mixRotate = constraint.mixRotate ?? constraint.data.mixRotate ?? 0;
+      const mixX = constraint.mixX ?? constraint.data.mixX ?? 0;
+      const mixY = constraint.mixY ?? constraint.data.mixY ?? 0;
+      const mixScaleX = constraint.mixScaleX ?? constraint.data.mixScaleX ?? 0;
+      const mixScaleY = constraint.mixScaleY ?? constraint.data.mixScaleY ?? 0;
+      const mixShearY = constraint.mixShearY ?? constraint.data.mixShearY ?? 0;
+      
+      if (mixRotate > 0) affectedProps.push('rotate');
+      if (mixX > 0) affectedProps.push('x');
+      if (mixY > 0) affectedProps.push('y');
+      if (mixScaleX > 0) affectedProps.push('scaleX');
+      if (mixScaleY > 0) affectedProps.push('scaleY');
+      if (mixShearY > 0) affectedProps.push('shearY');
+      
+      transformData.push({
+        name: constraint.data.name,
+        bones: constraint.bones.map((bone: any) => bone.data.name),
+        affectedProps: affectedProps.length
+      });
+    }
+  });
+  
+  // Collect Path constraint data
+  skeleton.pathConstraints.forEach((constraint: any) => {
+    if (activeComponents.activeConstraints.path.has(constraint.data.name)) {
+      pathData.push({
+        name: constraint.data.name,
+        bones: constraint.bones.map((bone: any) => bone.data.name),
+        rotateMode: constraint.data.rotateMode || 0,
+        spacingMode: constraint.data.spacingMode || 0
+      });
+    }
+  });
+  
+  // Collect Physics constraint data
+  if (skeleton.physicsConstraints) {
+    skeleton.physicsConstraints.forEach((constraint: any) => {
+      if (activeComponents.activeConstraints.physics.has(constraint.data.name)) {
+        const affectedProps = [];
+        if (constraint.data.x > 0) affectedProps.push('x');
+        if (constraint.data.y > 0) affectedProps.push('y');
+        if (constraint.data.rotate > 0) affectedProps.push('rotate');
+        if (constraint.data.scaleX > 0) affectedProps.push('scale');
+        if (constraint.data.shearX > 0) affectedProps.push('shear');
+        
+        physicsData.push({
+          name: constraint.data.name,
+          bone: constraint.bone.data.name,
+          affectedProps: affectedProps.length,
+          strength: constraint.strength || constraint.data.strength || 100,
+          damping: constraint.damping || constraint.data.damping || 1
+        });
+      }
+    });
+  }
+  
+  // Calculate constraint performance impact scores
+  const ikImpact = calculateIkImpact(ikData);
+  const transformImpact = calculateTransformImpact(transformData);
+  const pathImpact = calculatePathImpact(pathData);
+  const physicsImpact = calculatePhysicsImpact(physicsData);
+  
+  // Total active constraints
+  const totalActiveConstraints = activeIkCount + activeTransformCount + 
+                                activePathCount + activePhysicsCount;
+  
+  // Calculate constraint score based on weighted impacts
+  let constraintScore = 100;
+  
+  if (totalActiveConstraints > 0) {
+    const totalWeightedImpact = 
+      (ikImpact * PERFORMANCE_FACTORS.IK_WEIGHT) +
+      (transformImpact * PERFORMANCE_FACTORS.TRANSFORM_WEIGHT) +
+      (pathImpact * PERFORMANCE_FACTORS.PATH_WEIGHT) +
+      (physicsImpact * PERFORMANCE_FACTORS.PHYSICS_WEIGHT);
+    
+    constraintScore = Math.max(0, 100 - (totalWeightedImpact * 0.5));
+  }
+  
+  return {
+    activeIkCount,
+    activeTransformCount,
+    activePathCount,
+    activePhysicsCount,
+    totalActiveConstraints,
+    ikImpact,
+    transformImpact,
+    pathImpact,
+    physicsImpact,
+    score: constraintScore
+  };
+}
+
+/**
+ * Calculate the performance impact of IK constraints
+ * @param ikData Array of IK constraint data
+ * @returns Impact score from 0-100
+ */
+function calculateIkImpact(ikData: any[]): number {
+  if (ikData.length === 0) return 0;
+  
+  // Base impact from constraint count (logarithmic scaling)
+  let impact = Math.log2(ikData.length + 1) * 20;
+  
+  // Add impact from bone chain complexity
+  let totalBones = 0;
+  let maxChainLength = 0;
+  
+  ikData.forEach(ik => {
+    totalBones += ik.bones.length;
+    maxChainLength = Math.max(maxChainLength, ik.bones.length);
+  });
+  
+  // Add impact based on total bones in constraints
+  impact += Math.log2(totalBones + 1) * 10;
+  
+  // Add penalty for very long chains (exponential cost)
+  if (maxChainLength > 2) {
+    impact += Math.pow(maxChainLength, PERFORMANCE_FACTORS.IK_CHAIN_LENGTH_FACTOR) * 2;
+  }
+  
+  return Math.min(100, impact);
+}
+
+/**
+ * Calculate the performance impact of transform constraints
+ * @param transformData Array of transform constraint data
+ * @returns Impact score from 0-100
+ */
+function calculateTransformImpact(transformData: any[]): number {
+  if (transformData.length === 0) return 0;
+  
+  // Base impact from constraint count (logarithmic scaling)
+  let impact = Math.log2(transformData.length + 1) * 15;
+  
+  // Add impact from bone count
+  let totalBones = 0;
+  transformData.forEach(t => {
+    totalBones += t.bones.length;
+  });
+  
+  // Add impact based on total bones
+  impact += Math.log2(totalBones + 1) * 8;
+  
+  // Add impact based on property complexity
+  let propertyComplexity = 0;
+  transformData.forEach(t => {
+    propertyComplexity += t.affectedProps;
+  });
+  
+  // Add property complexity impact
+  impact += propertyComplexity * 5;
+  
+  return Math.min(100, impact);
+}
+
+/**
+ * Calculate the performance impact of path constraints
+ * @param pathData Array of path constraint data
+ * @returns Impact score from 0-100
+ */
+function calculatePathImpact(pathData: any[]): number {
+  if (pathData.length === 0) return 0;
+  
+  // Base impact from constraint count (logarithmic scaling)
+  let impact = Math.log2(pathData.length + 1) * 20;
+  
+  // Add impact from bone count
+  let totalBones = 0;
+  pathData.forEach(p => {
+    totalBones += p.bones.length;
+  });
+  
+  // Add impact based on total bones
+  impact += Math.log2(totalBones + 1) * 10;
+  
+  // Add impact based on mode complexity
+  let modeComplexity = 0;
+  pathData.forEach(p => {
+    // ChainScale is more expensive than Chain, which is more expensive than Tangent
+    if (p.rotateMode === 2) modeComplexity += 3; // ChainScale
+    else if (p.rotateMode === 1) modeComplexity += 2; // Chain
+    else modeComplexity += 1; // Tangent
+    
+    // Proportional spacing is more complex
+    if (p.spacingMode === 3) modeComplexity += 2; // Proportional
+    else modeComplexity += 1; // Other modes
+  });
+  
+  // Add mode complexity impact
+  impact += modeComplexity * 7;
+  
+  return Math.min(100, impact);
+}
+
+/**
+ * Calculate the performance impact of physics constraints
+ * @param physicsData Array of physics constraint data
+ * @returns Impact score from 0-100
+ */
+function calculatePhysicsImpact(physicsData: any[]): number {
+  if (physicsData.length === 0) return 0;
+  
+  // Base impact from constraint count (logarithmic scaling)
+  let impact = Math.log2(physicsData.length + 1) * 30;
+  
+  // Add impact based on property complexity
+  let propertiesComplexity = 0;
+  physicsData.forEach(p => {
+    // Higher damping/strength values can increase iteration count
+    const iterationFactor = Math.max(1, 3 - p.damping) * p.strength / 50;
+    
+    propertiesComplexity += p.affectedProps * (1 + iterationFactor);
+  });
+  
+  // Add properties complexity impact
+  impact += propertiesComplexity * 5;
+  
+  return Math.min(100, impact);
+}
+
+/**
+ * Original function for global physics analysis (kept for backward compatibility)
  */
 export function analyzePhysics(spineInstance: Spine): { html: string, metrics: any } {
   const skeleton = spineInstance.skeleton;
@@ -231,157 +499,6 @@ export function analyzePhysics(spineInstance: Spine): { html: string, metrics: a
       score: constraintScore
     }
   };
-}
-
-/**
- * Calculate the performance impact of IK constraints
- * @param ikData Array of IK constraint data
- * @returns Impact score from 0-100
- */
-function calculateIkImpact(ikData: any[]): number {
-  if (ikData.length === 0) return 0;
-  
-  // Base impact from constraint count (logarithmic scaling)
-  let impact = Math.log2(ikData.length + 1) * 20;
-  
-  // Add impact from bone chain complexity
-  let totalBones = 0;
-  let maxChainLength = 0;
-  
-  ikData.forEach(ik => {
-    totalBones += ik.bones.length;
-    maxChainLength = Math.max(maxChainLength, ik.bones.length);
-  });
-  
-  // Add impact based on total bones in constraints
-  impact += Math.log2(totalBones + 1) * 10;
-  
-  // Add penalty for very long chains (exponential cost)
-  if (maxChainLength > 2) {
-    impact += Math.pow(maxChainLength, PERFORMANCE_FACTORS.IK_CHAIN_LENGTH_FACTOR) * 2;
-  }
-  
-  return Math.min(100, impact);
-}
-
-/**
- * Calculate the performance impact of transform constraints
- * @param transformData Array of transform constraint data
- * @returns Impact score from 0-100
- */
-function calculateTransformImpact(transformData: any[]): number {
-  if (transformData.length === 0) return 0;
-  
-  // Base impact from constraint count (logarithmic scaling)
-  let impact = Math.log2(transformData.length + 1) * 15;
-  
-  // Add impact from bone count
-  let totalBones = 0;
-  transformData.forEach(t => {
-    totalBones += t.bones.length;
-  });
-  
-  // Add impact based on total bones
-  impact += Math.log2(totalBones + 1) * 8;
-  
-  // Add impact based on property complexity
-  let propertyComplexity = 0;
-  transformData.forEach(t => {
-    // Count how many properties are affected (mixRotate, mixX, etc.)
-    let affectedProps = 0;
-    if (t.mixRotate > 0) affectedProps++;
-    if (t.mixX > 0) affectedProps++;
-    if (t.mixY > 0) affectedProps++;
-    if (t.mixScaleX > 0) affectedProps++;
-    if (t.mixScaleY > 0) affectedProps++;
-    if (t.mixShearY > 0) affectedProps++;
-    
-    propertyComplexity += affectedProps;
-  });
-  
-  // Add property complexity impact
-  impact += propertyComplexity * 5;
-  
-  return Math.min(100, impact);
-}
-
-/**
- * Calculate the performance impact of path constraints
- * @param pathData Array of path constraint data
- * @returns Impact score from 0-100
- */
-function calculatePathImpact(pathData: any[]): number {
-  if (pathData.length === 0) return 0;
-  
-  // Base impact from constraint count (logarithmic scaling)
-  let impact = Math.log2(pathData.length + 1) * 20;
-  
-  // Add impact from bone count
-  let totalBones = 0;
-  pathData.forEach(p => {
-    totalBones += p.bones.length;
-  });
-  
-  // Add impact based on total bones
-  impact += Math.log2(totalBones + 1) * 10;
-  
-  // Add impact based on mode complexity
-  let modeComplexity = 0;
-  pathData.forEach(p => {
-    // ChainScale is more expensive than Chain, which is more expensive than Tangent
-    if (p.rotateMode === 2) modeComplexity += 3; // ChainScale
-    else if (p.rotateMode === 1) modeComplexity += 2; // Chain
-    else modeComplexity += 1; // Tangent
-    
-    // Proportional spacing is more complex
-    if (p.spacingMode === 3) modeComplexity += 2; // Proportional
-    else modeComplexity += 1; // Other modes
-    
-    // Complex paths with many world positions
-    if (p.worldPositionsCount > 20) modeComplexity += 2;
-  });
-  
-  // Add mode complexity impact
-  impact += modeComplexity * 7;
-  
-  return Math.min(100, impact);
-}
-
-/**
- * Calculate the performance impact of physics constraints
- * @param physicsData Array of physics constraint data
- * @returns Impact score from 0-100
- */
-function calculatePhysicsImpact(physicsData: any[]): number {
-  if (physicsData.length === 0) return 0;
-  
-  // Base impact from constraint count (logarithmic scaling)
-  let impact = Math.log2(physicsData.length + 1) * 30;
-  
-  // Add impact based on property complexity
-  let propertiesComplexity = 0;
-  physicsData.forEach(p => {
-    // Count affected properties
-    let affectedProps = 0;
-    if (p.affectsX) affectedProps++;
-    if (p.affectsY) affectedProps++;
-    if (p.affectsRotation) affectedProps++;
-    if (p.affectsScale) affectedProps++;
-    if (p.affectsShear) affectedProps++;
-    
-    // Higher damping/strength values can increase iteration count
-    const iterationFactor = Math.max(1, 3 - p.damping) * p.strength / 50;
-    
-    // Wind and gravity add complexity
-    const forceComplexity = (Math.abs(p.wind) > 0 ? 1 : 0) + (Math.abs(p.gravity) > 0 ? 1 : 0);
-    
-    propertiesComplexity += affectedProps * (1 + iterationFactor + forceComplexity);
-  });
-  
-  // Add properties complexity impact
-  impact += propertiesComplexity * 5;
-  
-  return Math.min(100, impact);
 }
 
 /**

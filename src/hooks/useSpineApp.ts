@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackgroundManager } from '../core/BackgroundManager';
 import { CameraContainer } from '../core/CameraContainer';
-import { SpineAnalyzer } from '../core/SpineAnalyzer';
+import { SpineAnalyzer, PerAnimationBenchmarkData } from '../core/SpineAnalyzer';
 import { SpineLoader } from '../core/SpineLoader';
 import { useToast } from './ToastContext';
 
@@ -15,6 +15,8 @@ export interface BenchmarkData {
   skeletonTree: any;
   summary: any;
   physicsAnalysis: any;
+  animationAnalyses?: any[]; // For per-animation data
+  medianScore?: number; // Median score across animations
 }
 
 export interface DebugFlags {
@@ -35,7 +37,7 @@ export function useSpineApp(app: Application | null) {
   const { i18n } = useTranslation();
   const [spineInstance, setSpineInstance] = useState<Spine | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [benchmarkData, setBenchmarkData] = useState<BenchmarkData | null>(null);
+  const [benchmarkData, setBenchmarkData] = useState<PerAnimationBenchmarkData | null>(null);
   
   // Separate flags for each debug visualization type
   const [meshesVisible, setMeshesVisible] = useState(false);
@@ -80,7 +82,7 @@ export function useSpineApp(app: Application | null) {
   // Effect to regenerate benchmark data when language changes
   useEffect(() => {
     if (spineInstance) {
-      const analysisData = SpineAnalyzer.analyze(spineInstance);
+      const analysisData = SpineAnalyzer.analyze(spineInstance) as PerAnimationBenchmarkData;
       setBenchmarkData(analysisData);
     }
   }, [i18n.language, spineInstance]);
@@ -152,8 +154,8 @@ export function useSpineApp(app: Application | null) {
       cameraContainerRef.current.addChild(newSpineInstance);
       cameraContainerRef.current.lookAtChild(newSpineInstance);
       
-      // Analyze spine data
-      const analysisData = SpineAnalyzer.analyze(newSpineInstance);
+      // Analyze spine data with per-animation analysis
+      const analysisData = SpineAnalyzer.analyze(newSpineInstance) as PerAnimationBenchmarkData;
       setBenchmarkData(analysisData);
       
       setSpineInstance(newSpineInstance);
