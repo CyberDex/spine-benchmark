@@ -87,6 +87,72 @@ export function useSpineApp(app: Application | null) {
     }
   }, [i18n.language, spineInstance]);
 
+  // Function to load spine files from URLs
+  const loadSpineFromUrls = async (jsonUrl: string, atlasUrl: string) => {
+    if (!app || !cameraContainerRef.current) {
+      addToast('Application not initialized', 'error');
+      throw new Error('Application not initialized');
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Remove previous Spine instance if exists
+      if (spineInstance) {
+        cameraContainerRef.current.removeChild(spineInstance);
+        setSpineInstance(null);
+      }
+
+      // Load spine files from URLs
+      const loader = new SpineLoader(app);
+      const newSpineInstance = await loader.loadSpineFromUrls(jsonUrl, atlasUrl);
+      
+      if (!newSpineInstance) {
+        throw new Error('Failed to load Spine instance from URLs');
+      }
+
+      // Add to camera container and look at it
+      cameraContainerRef.current.addChild(newSpineInstance);
+      cameraContainerRef.current.lookAtChild(newSpineInstance);
+      
+      // Analyze spine data with per-animation analysis
+      const analysisData = SpineAnalyzer.analyze(newSpineInstance) as PerAnimationBenchmarkData;
+      setBenchmarkData(analysisData);
+      
+      setSpineInstance(newSpineInstance);
+      addToast('Spine files loaded successfully from URLs', 'success');
+      
+      // Reset all debug flags
+      setMeshesVisible(false);
+      setPhysicsVisible(false);
+      setIkVisible(false);
+      
+      // Ensure debug visualization is turned off by default
+      if (cameraContainerRef.current) {
+        cameraContainerRef.current.setDebugFlags({
+          showBones: false,
+          showMeshTriangles: false,
+          showMeshHull: false,
+          showRegionAttachments: false,
+          showBoundingBoxes: false,
+          showPaths: false,
+          showClipping: false,
+          showPhysics: false,
+          showIkConstraints: false,
+          showTransformConstraints: false,
+          showPathConstraints: false
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error loading Spine files from URLs:', error);
+      addToast(`Error loading Spine files: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Function to load spine files
   const loadSpineFiles = async (files: FileList) => {
     if (!app || !cameraContainerRef.current) {
@@ -354,6 +420,7 @@ export function useSpineApp(app: Application | null) {
   return {
     spineInstance,
     loadSpineFiles,
+    loadSpineFromUrls,
     isLoading,
     benchmarkData,
     setBackgroundImage,

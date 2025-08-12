@@ -16,6 +16,142 @@ export class SpineLoader {
     this.app = app;
   }
 
+  /**
+   * Load Spine files from remote URLs
+   * @param jsonUrl URL to the JSON file
+   * @param atlasUrl URL to the atlas file
+   * @returns Spine instance or null
+   */
+  public async loadSpineFromUrls(jsonUrl: string, atlasUrl: string): Promise<Spine | null> {
+    try {
+      console.log('Loading Spine files from URLs:', { jsonUrl, atlasUrl });
+      
+      // Fetch atlas file
+      const atlasResponse = await fetch(atlasUrl);
+      if (!atlasResponse.ok) {
+        throw new Error(`Failed to fetch atlas: ${atlasResponse.statusText}`);
+      }
+      const atlasText = await atlasResponse.text();
+      
+      // Fetch JSON file
+      const jsonResponse = await fetch(jsonUrl);
+      if (!jsonResponse.ok) {
+        throw new Error(`Failed to fetch JSON: ${jsonResponse.statusText}`);
+      }
+      let skeletonData = await jsonResponse.json();
+      
+      // Check for Spine version compatibility
+      if (skeletonData && skeletonData.spine && skeletonData.spine.startsWith('4.1')) {
+        console.log('Updating Spine version from 4.1 to 4.2.0');
+        skeletonData.spine = '4.2.0';
+      }
+      
+      // Extract image URLs from atlas
+      const imageUrls = this.extractImageUrlsFromAtlas(atlasText, atlasUrl);
+      console.log('Image URLs to load:', imageUrls);
+      
+      // Create asset bundle from URLs
+      const assetBundle: Record<string, any> = {};
+      
+      for (const [imageName, imageUrl] of Object.entries(imageUrls)) {
+        assetBundle[imageName] = {
+          src: imageUrl,
+          loadParser: 'loadTextures'
+        };
+        
+        // Also store without extension for better matching
+        const nameWithoutExt = imageName.substring(0, imageName.lastIndexOf('.'));
+        if (nameWithoutExt) {
+          assetBundle[nameWithoutExt] = {
+            src: imageUrl,
+            loadParser: 'loadTextures'
+          };
+        }
+      }
+      
+      // Load textures
+      Assets.addBundle('spineAssets', assetBundle);
+      const textures = await Assets.loadBundle('spineAssets');
+      
+      // Create spine asset
+      return await this.createSpineAsset(skeletonData, atlasText, textures, false);
+      
+    } catch (error) {
+      console.error('Error loading Spine files from URLs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract image URLs from atlas content, resolving relative paths
+   * @param atlasText The atlas file content
+   * @param atlasUrl The URL of the atlas file (used to resolve relative paths)
+   * @returns Map of image names to URLs
+   */
+  private extractImageUrlsFromAtlas(atlasText: string, atlasUrl: string): Record<string, string> {
+    const lines = atlasText.split('\n');
+    const imageUrls: Record<string, string> = {};
+    const atlasBaseUrl = atlasUrl.substring(0, atlasUrl.lastIndexOf('/') + 1);
+    
+    let currentName = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line === '') continue;
+      
+      if (line.startsWith('size:')) {
+        if (currentName) {
+          // Construct full URL for the image
+          const imageUrl = this.resolveImageUrl(currentName, atlasBaseUrl);
+          imageUrls[currentName] = imageUrl;
+          
+          // Also add without extension
+          const nameWithoutExt = currentName.substring(0, currentName.lastIndexOf('.'));
+          if (nameWithoutExt) {
+            imageUrls[nameWithoutExt] = imageUrl;
+          }
+        }
+        currentName = '';
+      } else if (currentName === '') {
+        // If we don't have a current name and this line is not a property,
+        // it must be an image name
+        if (!line.includes(':')) {
+          currentName = line;
+        }
+      }
+    }
+    
+    // Add the last image name if we have one
+    if (currentName) {
+      const imageUrl = this.resolveImageUrl(currentName, atlasBaseUrl);
+      imageUrls[currentName] = imageUrl;
+      
+      const nameWithoutExt = currentName.substring(0, currentName.lastIndexOf('.'));
+      if (nameWithoutExt) {
+        imageUrls[nameWithoutExt] = imageUrl;
+      }
+    }
+    
+    return imageUrls;
+  }
+
+  /**
+   * Resolve image URL relative to atlas URL
+   * @param imageName The image name from the atlas
+   * @param atlasBaseUrl The base URL of the atlas file
+   * @returns Full URL to the image
+   */
+  private resolveImageUrl(imageName: string, atlasBaseUrl: string): string {
+    // If the image name is already a full URL, return it
+    if (imageName.startsWith('http://') || imageName.startsWith('https://')) {
+      return imageName;
+    }
+    
+    // Otherwise, resolve it relative to the atlas URL
+    return atlasBaseUrl + imageName;
+  }
+
   public async loadSpineFiles(files: FileList): Promise<Spine | null> {
     try {
       const acceptedFiles = Array.from(files);

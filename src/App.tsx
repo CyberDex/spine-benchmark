@@ -13,33 +13,36 @@ import { useSafeLocalStorage } from './hooks/useSafeLocalStorage';
 import { useSpineApp } from './hooks/useSpineApp';
 import { useCommandRegistration } from './hooks/useCommandRegistration';
 import { useUrlHash } from './hooks/useUrlHash';
-    const App: React.FC = () => {
-      const { t } = useTranslation();
-      const [app, setApp] = useState<Application | null>(null);
-      const canvasRef = useRef<HTMLCanvasElement>(null);
-      const [showBenchmark, setShowBenchmark] = useState(false);
-      const [showLanguageModal, setShowLanguageModal] = useState(false);
-    
-      // Debug log for language modal state changes
-      useEffect(() => {
-        console.log('🏠 App: Language modal state changed:', showLanguageModal);
-      }, [showLanguageModal]);
-    
-      // Enhanced setShowLanguageModal with additional logging
-      const setShowLanguageModalWithLogging = (show: boolean) => {
-        console.log('🏠 App: setShowLanguageModal called with:', show);
-        console.log('🏠 App: Current modal state before change:', showLanguageModal);
-        setShowLanguageModal(show);
-        console.log('🏠 App: setShowLanguageModal completed');
-      };
-      const [backgroundColor, setBackgroundColor] = useSafeLocalStorage('spine-benchmark-bg-color', '#282b30');
-      const [isLoading, setIsLoading] = useState(false);
-      const [currentAnimation, setCurrentAnimation] = useState('');
-      const { addToast } = useToast();
-      const { updateHash, getStateFromHash, onHashChange } = useUrlHash();
+
+const App: React.FC = () => {
+  const { t } = useTranslation();
+  const [app, setApp] = useState<Application | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [showBenchmark, setShowBenchmark] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [urlLoadAttempted, setUrlLoadAttempted] = useState(false);
+
+  // Debug log for language modal state changes
+  useEffect(() => {
+    console.log('🏠 App: Language modal state changed:', showLanguageModal);
+  }, [showLanguageModal]);
+
+  // Enhanced setShowLanguageModal with additional logging
+  const setShowLanguageModalWithLogging = (show: boolean) => {
+    console.log('🏠 App: setShowLanguageModal called with:', show);
+    console.log('🏠 App: Current modal state before change:', showLanguageModal);
+    setShowLanguageModal(show);
+    console.log('🏠 App: setShowLanguageModal completed');
+  };
+  const [backgroundColor, setBackgroundColor] = useSafeLocalStorage('spine-benchmark-bg-color', '#282b30');
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentAnimation, setCurrentAnimation] = useState('');
+  const { addToast } = useToast();
+  const { updateHash, getStateFromHash, onHashChange } = useUrlHash();
   const {
     spineInstance,
     loadSpineFiles,
+    loadSpineFromUrls,
     isLoading: spineLoading,
     benchmarkData,
     meshesVisible,
@@ -50,6 +53,25 @@ import { useUrlHash } from './hooks/useUrlHash';
     toggleIk
   } = useSpineApp(app);
 
+  // Check for URL parameters on mount
+  useEffect(() => {
+    if (!app || urlLoadAttempted) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const jsonUrl = urlParams.get('json');
+    const atlasUrl = urlParams.get('atlas');
+
+    if (jsonUrl && atlasUrl) {
+      console.log('Loading Spine files from URL parameters:', { jsonUrl, atlasUrl });
+      setUrlLoadAttempted(true);
+      
+      // Load files from URLs
+      loadSpineFromUrls(jsonUrl, atlasUrl).catch(error => {
+        console.error('Failed to load files from URLs:', error);
+        addToast(t('error.failedToLoadFromUrls', { error: error.message }), 'error');
+      });
+    }
+  }, [app, loadSpineFromUrls, urlLoadAttempted, addToast, t]);
 
   // Check initial hash state for benchmark panel
   useEffect(() => {
