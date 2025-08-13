@@ -1,4 +1,4 @@
-import { Animation, BlendMode, Spine } from "@esotericsoftware/spine-pixi-v8";
+import { Animation, BlendMode, Physics, Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
 import { calculateBlendModeScore } from "../utils/scoreCalculator";
 import { ActiveComponents } from "../utils/animationUtils";
@@ -20,7 +20,7 @@ export interface GlobalBlendModeAnalysis {
 }
 
 /**
- * Analyzes blend modes for a specific animation
+ * Analyzes blend modes for a specific animation frame by frame
  * @param spineInstance The Spine instance to analyze
  * @param animation The animation to analyze
  * @param activeComponents Components active in this animation
@@ -32,44 +32,93 @@ export function analyzeBlendModesForAnimation(
   activeComponents: ActiveComponents
 ): BlendModeMetrics {
   const skeleton = spineInstance.skeleton;
+  const animationState = spineInstance.state;
   
-  let activeNonNormalCount = 0;
-  let activeAdditiveCount = 0;
-  let activeMultiplyCount = 0;
-  
-  console.log(`Analyzing blend modes for ${animation.name}, active slots: ${activeComponents.slots.size}`);
-  
-  // Only analyze blend modes in active slots
-  activeComponents.slots.forEach(slotName => {
-    const slot = skeleton.slots.find((s: any) => s.data.name === slotName);
-    
-    if (slot) {
-      const blendMode = slot.data.blendMode;
-      
-      if (blendMode !== BlendMode.Normal) {
-        activeNonNormalCount++;
-        
-        if (blendMode === BlendMode.Additive) {
-          activeAdditiveCount++;
-        } else if (blendMode === BlendMode.Multiply) {
-          activeMultiplyCount++;
-        }
-        
-        console.log(`Found non-normal blend mode in slot ${slotName}: ${BlendMode[blendMode]}`);
-      }
+  // Store current animation state to restore later
+  const currentTracks = [];
+  for (let i = 0; i < animationState.tracks.length; i++) {
+    const track = animationState.tracks[i];
+    if (track) {
+      currentTracks.push({
+        index: i,
+        animation: track.animation,
+        time: track.trackTime,
+        loop: track.loop
+      });
     }
-  });
+  }
   
-  // Calculate blend mode score
-  const blendModeScore = calculateBlendModeScore(activeNonNormalCount, activeAdditiveCount);
+  // Clear animation state and set our target animation
+  animationState.clearTracks();
+  animationState.setAnimation(0, animation.name, false);
+  
+  // Sample rate: check every 1/30th of a second (30 FPS)
+  const sampleRate = 1 / 60;
+  const duration = animation.duration;
+  let maxNonNormalCount = 0;
+  let maxAdditiveCount = 0;
+  let maxMultiplyCount = 0;
+  
+  console.log(`Analyzing blend modes frame by frame for ${animation.name}, duration: ${duration}s`);
+  
+  // Step through the animation frame by frame
+  for (let time = 0; time <= duration; time += sampleRate) {
+    // Update animation to current time
+    animationState.update(0);
+    animationState.tracks[0]!.trackTime = time;
+    animationState.apply(skeleton);
+    skeleton.update(0);
+    skeleton.updateWorldTransform(Physics.update);
+    
+    // Count visible blend modes at this frame
+    let frameNonNormalCount = 0;
+    let frameAdditiveCount = 0;
+    let frameMultiplyCount = 0;
+    
+    activeComponents.slots.forEach(slotName => {
+      const slot = skeleton.slots.find((s: any) => s.data.name === slotName);
+      
+      if (slot && slot.color.a > 0 && slot.attachment) { // Only count visible slots
+        const blendMode = slot.data.blendMode;
+        
+        if (blendMode !== BlendMode.Normal) {
+          frameNonNormalCount++;
+          
+          if (blendMode === BlendMode.Additive) {
+            frameAdditiveCount++;
+          } else if (blendMode === BlendMode.Multiply) {
+            frameMultiplyCount++;
+          }
+        }
+      }
+    });
+    
+    // Update maximums
+    maxNonNormalCount = Math.max(maxNonNormalCount, frameNonNormalCount);
+    maxAdditiveCount = Math.max(maxAdditiveCount, frameAdditiveCount);
+    maxMultiplyCount = Math.max(maxMultiplyCount, frameMultiplyCount);
+  }
+  
+  console.log(`Max concurrent blend modes - Non-normal: ${maxNonNormalCount}, Additive: ${maxAdditiveCount}, Multiply: ${maxMultiplyCount}`);
+  
+  // Restore original animation state
+  animationState.clearTracks();
+  currentTracks.forEach(track => {
+    const newTrack = animationState.setAnimation(track.index, track.animation!.name, track.loop);
+    newTrack.trackTime = track.time;
+  });
+  animationState.apply(skeleton);
+  
+  // Calculate blend mode score based on maximum concurrent blend modes
+  const blendModeScore = calculateBlendModeScore(maxNonNormalCount, maxAdditiveCount);
   
   return {
-    activeNonNormalCount,
-    nonNormalBlendModeCount: activeNonNormalCount, // For compatibility
-    activeAdditiveCount,
-    additiveCount: activeAdditiveCount, // For compatibility
-    activeMultiplyCount,
-    multiplyCount: activeMultiplyCount, // For compatibility
+    activeNonNormalCount: maxNonNormalCount,
+    nonNormalBlendModeCount: maxNonNormalCount, // For compatibility
+    activeAdditiveCount: maxAdditiveCount,
+    additiveCount: maxAdditiveCount, // For compatibility
+    activeMultiplyCount: maxMultiplyCount,
+    multiplyCount: maxMultiplyCount, // For compatibility
     score: blendModeScore
   };
 }

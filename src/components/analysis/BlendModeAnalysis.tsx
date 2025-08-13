@@ -33,15 +33,15 @@ export const BlendModeAnalysis: React.FC<BlendModeAnalysisProps> = ({ data }) =>
         </div>
       </div>
 
-      <h4>Per-Animation Breakdown</h4>
+      <h4>Per-Animation Breakdown (Maximum Concurrent)</h4>
       <table className="benchmark-table">
         <thead>
           <tr>
             <th>Animation</th>
             <th>Has Blend Modes</th>
-            <th>Non-Normal</th>
-            <th>Additive</th>
-            <th>Multiply</th>
+            <th>Max Non-Normal</th>
+            <th>Max Additive</th>
+            <th>Max Multiply</th>
             <th>Score</th>
           </tr>
         </thead>
@@ -82,8 +82,9 @@ export const BlendModeAnalysis: React.FC<BlendModeAnalysisProps> = ({ data }) =>
       <div className="analysis-notes">
         <h4>{t('analysis.blendMode.notes.title')}</h4>
         <ul>
+          <li><strong>Frame-by-Frame Analysis:</strong> Values shown are the maximum number of blend modes visible at any single frame.</li>
           <li><strong>Blend Mode Impact:</strong> Non-normal blend modes require additional GPU render passes.</li>
-          <li><strong>Active Blend Modes:</strong> Only blend modes on visible slots in each animation are counted.</li>
+          <li><strong>Concurrent vs Total:</strong> Having 10 blend modes where only 2 are visible at once is much better than having 10 visible simultaneously.</li>
           <li><strong>Optimization:</strong> Use normal blend mode when possible, pre-composite effects for static elements.</li>
         </ul>
       </div>
