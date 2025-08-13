@@ -458,12 +458,6 @@ const App: React.FC = () => {
         {!spineInstance && urlLoadStatus !== 'loading' && (
           <div className="drop-area">
             <p>{t('ui.dropArea')}</p>
-            <button 
-              className="url-load-button"
-              onClick={() => setShowUrlModal(true)}
-            >
-              {t('ui.loadFromUrl', 'Load from URL')}
-            </button>
           </div>
         )}
         
@@ -478,7 +472,6 @@ const App: React.FC = () => {
       {!spineInstance && urlLoadStatus !== 'loading' && (
         <div className="help-text">
           <p>{t('ui.helpText')}</p>
-          <p>{t('ui.urlHelp', 'You can also load Spine files from URL using the button above or by adding ?json=<url>&atlas=<url> to the URL')}</p>
         </div>
       )}
       

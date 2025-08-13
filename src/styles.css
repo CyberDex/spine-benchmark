@@ -1441,32 +1441,6 @@ body {
   transform: scaleX(-1) !important;
 }
 
-/* URL Load Button */
-.url-load-button {
-  margin-top: 20px;
-  padding: 12px 24px;
-  background-color: #4a5568;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.url-load-button:hover {
-  background-color: #5a6578;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
-
-.url-load-button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
 /* Modal Styles */
 .modal-backdrop {
   position: fixed;
@@ -1590,11 +1564,4 @@ body {
 .loading-indicator p {
   font-size: 16px;
   color: #e2e8f0;
-}
-
-/* Help text enhancement */
-.help-text p:last-child {
-  margin-top: 12px;
-  font-size: 14px;
-  color: #a0aec0;
 }
