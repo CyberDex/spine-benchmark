@@ -158,7 +158,7 @@ const App: React.FC = () => {
     } catch (error) {
       setUrlLoadStatus('error');
       console.error('Failed to load from URLs:', error);
-      addToast(t('error.failedToLoadFromUrls', { error: error.message }), 'error');
+      addToast(t('error.failedToLoadFromUrls', { error: (error as any).message }), 'error');
     }
   }, [loadSpineFromUrls, addToast, t]);
 
