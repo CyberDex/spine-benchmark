@@ -17,7 +17,7 @@ export class SpineLoader {
   }
 
   /**
-   * Load Spine files from remote URLs
+   * Load Spine files from remote URLs (simplified approach similar to widget)
    * @param jsonUrl URL to the JSON file
    * @param atlasUrl URL to the atlas file
    * @returns Spine instance or null
@@ -26,14 +26,37 @@ export class SpineLoader {
     try {
       console.log('Loading Spine files from URLs:', { jsonUrl, atlasUrl });
       
-      // Fetch atlas file
+      // Generate unique aliases for caching
+      const timestamp = Date.now();
+      const atlasAlias = `atlas-${timestamp}-${atlasUrl}`;
+      const jsonAlias = `json-${timestamp}-${jsonUrl}`;
+      
+      // Add assets to PIXI
+      Assets.add({ alias: atlasAlias, src: atlasUrl });
+      Assets.add({ alias: jsonAlias, src: jsonUrl });
+      
+      // First, fetch the atlas to extract image URLs
       const atlasResponse = await fetch(atlasUrl);
       if (!atlasResponse.ok) {
         throw new Error(`Failed to fetch atlas: ${atlasResponse.statusText}`);
       }
       const atlasText = await atlasResponse.text();
       
-      // Fetch JSON file
+      // Extract and add image assets
+      const imageUrls = this.extractImageUrlsFromAtlas(atlasText, atlasUrl);
+      console.log('Extracted image URLs:', imageUrls);
+      
+      // Add image assets
+      for (const [imageName, imageUrl] of Object.entries(imageUrls)) {
+        const imageAlias = `${timestamp}-${imageName}`;
+        Assets.add({ alias: imageAlias, src: imageUrl });
+      }
+      
+      // Load all assets
+      const allAliases = [atlasAlias, jsonAlias, ...Object.keys(imageUrls).map(name => `${timestamp}-${name}`)];
+      await Assets.load(allAliases);
+      
+      // Fetch JSON data
       const jsonResponse = await fetch(jsonUrl);
       if (!jsonResponse.ok) {
         throw new Error(`Failed to fetch JSON: ${jsonResponse.statusText}`);
@@ -46,39 +69,45 @@ export class SpineLoader {
         skeletonData.spine = '4.2.0';
       }
       
-      // Extract image URLs from atlas
-      const imageUrls = this.extractImageUrlsFromAtlas(atlasText, atlasUrl);
-      console.log('Image URLs to load:', imageUrls);
+      // Create texture atlas
+      const spineAtlas = new TextureAtlas(atlasText);
       
-      // Create asset bundle from URLs
-      const assetBundle: Record<string, any> = {};
-      
-      for (const [imageName, imageUrl] of Object.entries(imageUrls)) {
-        assetBundle[imageName] = {
-          src: imageUrl,
-          loadParser: 'loadTextures'
-        };
+      // Assign textures to atlas pages
+      for (const page of spineAtlas.pages) {
+        const pageName = page.name;
+        const imageAlias = `${timestamp}-${pageName}`;
+        const texture = await Assets.load(imageAlias);
         
-        // Also store without extension for better matching
-        const nameWithoutExt = imageName.substring(0, imageName.lastIndexOf('.'));
-        if (nameWithoutExt) {
-          assetBundle[nameWithoutExt] = {
-            src: imageUrl,
-            loadParser: 'loadTextures'
-          };
+        if (!texture) {
+          // Try without extension
+          const nameWithoutExt = pageName.substring(0, pageName.lastIndexOf('.'));
+          const altAlias = `${timestamp}-${nameWithoutExt}`;
+          const altTexture = await Assets.load(altAlias);
+          
+          if (!altTexture) {
+            console.error(`Missing texture for page: ${pageName}`);
+            throw new Error(`Missing texture for page: ${pageName}`);
+          }
+          
+          page.setTexture(SpineTexture.from(altTexture.source));
+        } else {
+          page.setTexture(SpineTexture.from(texture.source));
         }
       }
       
-      // Load textures
-      Assets.addBundle('spineAssets', assetBundle);
-      const textures = await Assets.loadBundle('spineAssets');
+      // Create attachment loader and skeleton
+      const atlasLoader = new AtlasAttachmentLoader(spineAtlas);
+      const skeletonJson = new SkeletonJson(atlasLoader);
+      const skeletonDataObj = skeletonJson.readSkeletonData(skeletonData);
       
-      // Create spine asset
-      return await this.createSpineAsset(skeletonData, atlasText, textures, false);
+      // Create and return spine instance
+      return new Spine(skeletonDataObj);
       
     } catch (error) {
       console.error('Error loading Spine files from URLs:', error);
       throw error;
+    } finally {
+      // Note: We don't unload assets here as they might be needed for the spine instance
     }
   }
 

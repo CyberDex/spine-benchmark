@@ -14,13 +14,72 @@ import { useSpineApp } from './hooks/useSpineApp';
 import { useCommandRegistration } from './hooks/useCommandRegistration';
 import { useUrlHash } from './hooks/useUrlHash';
 
+// URL Input Modal Component
+const UrlInputModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onLoad: (jsonUrl: string, atlasUrl: string) => void;
+}> = ({ isOpen, onClose, onLoad }) => {
+  const [jsonUrl, setJsonUrl] = useState('');
+  const [atlasUrl, setAtlasUrl] = useState('');
+  const { t } = useTranslation();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (jsonUrl && atlasUrl) {
+      onLoad(jsonUrl, atlasUrl);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h2>{t('ui.loadFromUrl', 'Load Spine from URL')}</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="json-url">JSON URL:</label>
+            <input
+              id="json-url"
+              type="url"
+              value={jsonUrl}
+              onChange={(e) => setJsonUrl(e.target.value)}
+              placeholder="https://example.com/spine.json"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="atlas-url">Atlas URL:</label>
+            <input
+              id="atlas-url"
+              type="url"
+              value={atlasUrl}
+              onChange={(e) => setAtlasUrl(e.target.value)}
+              placeholder="https://example.com/spine.atlas"
+              required
+            />
+          </div>
+          <div className="form-actions">
+            <button type="button" onClick={onClose}>{t('ui.cancel', 'Cancel')}</button>
+            <button type="submit">{t('ui.load', 'Load')}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [app, setApp] = useState<Application | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showUrlModal, setShowUrlModal] = useState(false);
   const [urlLoadAttempted, setUrlLoadAttempted] = useState(false);
+  const [urlLoadStatus, setUrlLoadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // Debug log for language modal state changes
   useEffect(() => {
@@ -53,25 +112,55 @@ const App: React.FC = () => {
     toggleIk
   } = useSpineApp(app);
 
-  // Check for URL parameters on mount
+  // Check for URL parameters on mount - Enhanced version
   useEffect(() => {
     if (!app || urlLoadAttempted) return;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const jsonUrl = urlParams.get('json');
-    const atlasUrl = urlParams.get('atlas');
+    const checkAndLoadFromUrl = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const jsonUrl = urlParams.get('json');
+      const atlasUrl = urlParams.get('atlas');
 
-    if (jsonUrl && atlasUrl) {
-      console.log('Loading Spine files from URL parameters:', { jsonUrl, atlasUrl });
-      setUrlLoadAttempted(true);
-      
-      // Load files from URLs
-      loadSpineFromUrls(jsonUrl, atlasUrl).catch(error => {
-        console.error('Failed to load files from URLs:', error);
-        addToast(t('error.failedToLoadFromUrls', { error: error.message }), 'error');
-      });
-    }
+      if (jsonUrl && atlasUrl) {
+        console.log('Found Spine URLs in query parameters:', { jsonUrl, atlasUrl });
+        setUrlLoadAttempted(true);
+        setUrlLoadStatus('loading');
+        
+        try {
+          await loadSpineFromUrls(jsonUrl, atlasUrl);
+          setUrlLoadStatus('success');
+          addToast(t('success.loadedFromUrl', 'Successfully loaded Spine from URL'), 'success');
+        } catch (error) {
+          console.error('Failed to load files from URLs:', error);
+          setUrlLoadStatus('error');
+          addToast(t('error.failedToLoadFromUrls', { error: (error as any).message }), 'error');
+        }
+      }
+    };
+
+    checkAndLoadFromUrl();
   }, [app, loadSpineFromUrls, urlLoadAttempted, addToast, t]);
+
+  // Handle URL loading from modal
+  const handleUrlLoad = useCallback(async (jsonUrl: string, atlasUrl: string) => {
+    try {
+      setUrlLoadStatus('loading');
+      await loadSpineFromUrls(jsonUrl, atlasUrl);
+      setUrlLoadStatus('success');
+      
+      // Update URL parameters to persist the loaded URLs
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('json', jsonUrl);
+      newUrl.searchParams.set('atlas', atlasUrl);
+      window.history.replaceState({}, '', newUrl);
+      
+      addToast(t('success.loadedFromUrl', 'Successfully loaded Spine from URL'), 'success');
+    } catch (error) {
+      setUrlLoadStatus('error');
+      console.error('Failed to load from URLs:', error);
+      addToast(t('error.failedToLoadFromUrls', { error: error.message }), 'error');
+    }
+  }, [loadSpineFromUrls, addToast, t]);
 
   // Check initial hash state for benchmark panel
   useEffect(() => {
@@ -336,6 +425,24 @@ const App: React.FC = () => {
     toggleIk
   });
 
+  // Add this to register URL load command
+  useEffect(() => {
+    if (app) {
+      commandRegistry.register({
+        id: 'file.load-from-url',
+        title: t('commands.file.loadFromUrl', 'Load Spine from URL'),
+        category: 'file',
+        description: t('commands.file.loadFromUrlDescription', 'Load Spine files from remote URLs'),
+        keywords: ['load', 'url', 'remote', 'cdn', 's3', 'http'],
+        execute: () => setShowUrlModal(true)
+      });
+    }
+
+    return () => {
+      commandRegistry.unregister('file.load-from-url');
+    };
+  }, [app, t]);
+
   return (
     <div className="app-container">
       <div 
@@ -346,23 +453,30 @@ const App: React.FC = () => {
       >
         <canvas ref={canvasRef} id="pixiCanvas" />
         
-        {!spineInstance && (
+        {!spineInstance && urlLoadStatus !== 'loading' && (
           <div className="drop-area">
             <p>{t('ui.dropArea')}</p>
+            <button 
+              className="url-load-button"
+              onClick={() => setShowUrlModal(true)}
+            >
+              {t('ui.loadFromUrl', 'Load from URL')}
+            </button>
           </div>
         )}
         
-        {(isLoading || spineLoading) && (
+        {(isLoading || spineLoading || urlLoadStatus === 'loading') && (
           <div className="loading-indicator">
-            <p>{t('ui.loading')}</p>
+            <p>{urlLoadStatus === 'loading' ? t('ui.loadingFromUrl', 'Loading from URL...') : t('ui.loading')}</p>
           </div>
         )}
       </div>
       
       {/* Help text when no Spine file is loaded */}
-      {!spineInstance && (
+      {!spineInstance && urlLoadStatus !== 'loading' && (
         <div className="help-text">
           <p>{t('ui.helpText')}</p>
+          <p>{t('ui.urlHelp', 'You can also load Spine files from URL using the button above or by adding ?json=<url>&atlas=<url> to the URL')}</p>
         </div>
       )}
       
@@ -419,8 +533,18 @@ const App: React.FC = () => {
           setShowLanguageModalWithLogging(false);
         }}
       />
+      
+      {/* URL Input Modal */}
+      <UrlInputModal
+        isOpen={showUrlModal}
+        onClose={() => setShowUrlModal(false)}
+        onLoad={handleUrlLoad}
+      />
     </div>
   );
 };
+
+// Import command registry for registration
+import { commandRegistry } from './utils/commandRegistry';
 
 export default App;
