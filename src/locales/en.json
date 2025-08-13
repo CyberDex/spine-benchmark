@@ -21,13 +21,19 @@
     "noFilesDropped": "No files were dropped",
     "noValidFiles": "No valid files found in the dropped items",
     "processingError": "Error processing dropped files: {0}",
-    "loadingError": "Error loading Spine files: {0}"
+    "loadingError": "Error loading Spine files: {0}",
+    "failedToLoadFromUrls": "Failed to load from URLs: {{error}}"
   },
   "ui": {
     "dropArea": "Drop Spine files or folders here (JSON, Atlas, and Images)",
     "loading": "Loading...",
     "helpText": "Ctrl+K opens a panel",
-    "close": "Close"
+    "close": "Close",
+    "loadFromUrl": "Load from URL",
+    "loadingFromUrl": "Loading from URL...",
+    "urlHelp": "You can also load Spine files from URL using the button above or by adding ?json=<url>&atlas=<url> to the URL",
+    "cancel": "Cancel",
+    "load": "Load"
   },
   "commands": {
     "categories": {
@@ -36,7 +42,8 @@
       "animation": "Animation Commands",
       "skin": "Skin Commands",
       "performance": "Performance Commands",
-      "language": "Language Commands"
+      "language": "Language Commands",
+      "file": "File Commands"
     },
     "debug": {
       "showAttachmentDebug": "Show Attachment Debug",
@@ -56,10 +63,14 @@
       "hidePhysicsDebug": "Hide Physics Debug",
       "hidePhysicsDebugDescription": "Hide physics debug visualization"
     },
+    "file": {
+      "loadFromUrl": "Load Spine from URL",
+      "loadFromUrlDescription": "Load Spine files from remote URLs"
+    },
     "animation": {
       "playPause": "Play/Pause Animation",
       "playPauseDescription": "Toggle animation playback",
-      "stop": "Stop Animation",
+      "stop": "Sto                      p Animation",
       "stopDescription": "Stop current animation",
       "restart": "Restart Animation",
       "restartDescription": "Restart current animation from beginning"
@@ -471,5 +482,8 @@
         "recommendation": "Recommendation: Use constraints sparingly and with minimal bone chains when possible"
       }
     }
+  },
+  "success": {
+    "loadedFromUrl": "Successfully loaded Spine from URL"
   }
 }
