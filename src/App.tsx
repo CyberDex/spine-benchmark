@@ -367,12 +367,8 @@ const App: React.FC = () => {
       )}
       
       {/* Controls container - only visible when Spine file is loaded */}
-      <div className={`controls-container ${spineInstance ? 'visible' : 'hidden'}`}>
-        <div className="left-controls">
-          {/* Left controls are now empty - removed benchmark toggle */}
-        </div>
-        
-        <div className="center-controls">
+      <div className={`controls-container ${spineInstance ? 'visible' : 'hidden'}`}>    
+
           {spineInstance && (() => {
             console.log('App center-controls render:', {
               hasSpineInstance: !!spineInstance,
@@ -383,11 +379,6 @@ const App: React.FC = () => {
               onAnimationChange={setCurrentAnimation}
             />;
           })()}
-        </div>
-        
-        <div className="right-controls">
-          {/* Right controls are now empty - removed color picker */}
-        </div>
       </div>
       
       {showBenchmark && benchmarkData && (
@@ -416,7 +407,7 @@ const App: React.FC = () => {
       
       {/* Version Display */}
       <VersionDisplay
-        appVersion="1.1.0"
+        appVersion="1.2.0"
         spineVersion="4.2.*"
       />
       

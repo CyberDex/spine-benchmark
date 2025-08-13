@@ -123,13 +123,13 @@ export const AnimationControls: React.FC<AnimationControlsProps> = ({
 
   return (
     <div className="animation-controls">
-      <div className="animation-name">
+      {/* <div className="animation-name">
         {currentAnimation}
-      </div>
+      </div> */}
       
       <div className="playback-controls">
         <IconButton
-          icon={<RewindIcon />}
+          icon={<RewindIcon className='flipped'/>}
           onClick={previousAnimation}
           tooltip="Previous Animation"
         />
