@@ -1,18 +1,37 @@
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
-import { calculateBoneScore, calculateMaxDepth, getScoreColor } from "../utils/scoreCalculator";
-import i18n from "../../i18n";
+import { calculateBoneScore, calculateMaxDepth } from "../utils/scoreCalculator";
+
+export interface BoneNode {
+  name: string;
+  type: string;
+  x: string;
+  y: string;
+  children: BoneNode[];
+}
+
+export interface SkeletonMetrics {
+  totalBones: number;
+  rootBones: number;
+  maxDepth: number;
+  score: number;
+}
+
+export interface SkeletonAnalysis {
+  boneTree: BoneNode[];
+  metrics: SkeletonMetrics;
+}
 
 /**
  * Analyzes the skeleton structure of a Spine instance
  * @param spineInstance The Spine instance to analyze
- * @returns HTML output and metrics for skeleton structure analysis
+ * @returns Skeleton analysis data
  */
-export function createSkeletonTree(spineInstance: Spine): { html: string, metrics: any } {
+export function analyzeSkeletonStructure(spineInstance: Spine): SkeletonAnalysis {
   const skeleton = spineInstance.skeleton;
   
   // Generate tree structure
-  function buildBoneNode(bone: any): any {
+  function buildBoneNode(bone: any): BoneNode {
     const children = bone.children || [];
     return {
       name: bone.data.name,
@@ -32,71 +51,15 @@ export function createSkeletonTree(spineInstance: Spine): { html: string, metric
   // Calculate bone score
   const boneScore = calculateBoneScore(totalBones, maxDepth);
   
-  const metrics = {
+  const metrics: SkeletonMetrics = {
     totalBones,
     rootBones: rootBones.length,
     maxDepth,
     score: boneScore
   };
   
-  // Generate HTML for the tree
-  function generateTreeHTML(nodes: any[]): string {
-    if (nodes.length === 0) return '';
-    
-    let html = '<ul class="skeleton-tree">';
-    
-    nodes.forEach(node => {
-      html += `<li class="tree-node">
-        <span class="node-label">${i18n.t('analysis.skeleton.nodeLabel', { name: node.name, x: node.x, y: node.y })}</span>`;
-      
-      if (node.children && node.children.length > 0) {
-        html += generateTreeHTML(node.children);
-      }
-      
-      html += '</li>';
-    });
-    
-    html += '</ul>';
-    return html;
-  }
-  
-  let html = `
-    <div class="skeleton-tree-container">
-      <h3>${i18n.t('analysis.skeleton.title')}</h3>
-      <p>${i18n.t('analysis.skeleton.statistics.totalBones', { count: totalBones })}</p>
-      <p>${i18n.t('analysis.skeleton.statistics.rootBones', { count: rootBones.length })}</p>
-      <p>${i18n.t('analysis.skeleton.statistics.maxDepth', { depth: maxDepth })}</p>
-      
-      <div class="performance-score">
-        <h4>${i18n.t('analysis.skeleton.performanceScore.title', { score: boneScore.toFixed(1) })}</h4>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${boneScore}%; background-color: ${getScoreColor(boneScore)};"></div>
-        </div>
-      </div>
-      
-      <div class="analysis-metrics">
-        <p><strong>${i18n.t('analysis.skeleton.formula.title')}</strong></p>
-        <code>${i18n.t('analysis.skeleton.formula.description', { 
-          idealBoneCount: PERFORMANCE_FACTORS.IDEAL_BONE_COUNT,
-          depthFactor: PERFORMANCE_FACTORS.BONE_DEPTH_FACTOR
-        })}</code>
-      </div>
-      
-      <div class="tree-view">
-        ${generateTreeHTML(boneTree)}
-      </div>
-      
-      <div class="analysis-notes">
-        <h4>${i18n.t('analysis.skeleton.notes.title')}</h4>
-        <ul>
-          <li><strong>${i18n.t('analysis.skeleton.notes.boneCount')}</strong></li>
-          <li><strong>${i18n.t('analysis.skeleton.notes.hierarchyDepth')}</strong></li>
-          <li><strong>${i18n.t('analysis.skeleton.notes.recommendation')}</strong></li>
-          <li><strong>${i18n.t('analysis.skeleton.notes.optimalStructure')}</strong></li>
-        </ul>
-      </div>
-    </div>
-  `;
-  
-  return {html, metrics};
+  return {
+    boneTree,
+    metrics
+  };
 }

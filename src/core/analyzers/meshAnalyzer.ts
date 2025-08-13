@@ -1,8 +1,32 @@
 import { Animation, DeformTimeline, MeshAttachment, Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
-import { calculateMeshScore, getScoreColor } from "../utils/scoreCalculator";
+import { calculateMeshScore } from "../utils/scoreCalculator";
 import { ActiveComponents } from "../utils/animationUtils";
-import i18n from "../../i18n";
+
+export interface MeshMetrics {
+  activeMeshCount: number;
+  totalMeshCount: number; // For compatibility
+  totalVertices: number;
+  weightedMeshCount: number;
+  deformedMeshCount: number;
+  avgVerticesPerMesh: number;
+  highVertexMeshes: number;
+  complexMeshes: number;
+  score: number;
+}
+
+export interface MeshInfo {
+  slotName: string;
+  vertices: number;
+  isDeformed: boolean;
+  boneWeights: number;
+  hasParentMesh: boolean;
+}
+
+export interface GlobalMeshAnalysis {
+  meshes: MeshInfo[];
+  metrics: MeshMetrics;
+}
 
 /**
  * Analyzes mesh attachments for a specific animation
@@ -15,7 +39,7 @@ export function analyzeMeshesForAnimation(
   spineInstance: Spine,
   animation: Animation,
   activeComponents: ActiveComponents
-): any {
+): MeshMetrics {
   const skeleton = spineInstance.skeleton;
   
   let activeMeshCount = 0;
@@ -79,9 +103,9 @@ export function analyzeMeshesForAnimation(
   });
   
   // Calculate mesh complexity metrics
-  const meshComplexityMetrics = {
+  const meshComplexityMetrics: MeshMetrics = {
     activeMeshCount,
-    totalMeshCount: activeMeshCount, // For compatibility with score calculator
+    totalMeshCount: activeMeshCount,
     totalVertices,
     weightedMeshCount,
     deformedMeshCount,
@@ -99,9 +123,11 @@ export function analyzeMeshesForAnimation(
 }
 
 /**
- * Original function for global mesh analysis (kept for backward compatibility)
+ * Analyzes global mesh data across the entire skeleton
+ * @param spineInstance The Spine instance to analyze
+ * @returns Global mesh analysis data
  */
-export function analyzeMeshes(spineInstance: Spine): { html: string, metrics: any } {
+export function analyzeGlobalMeshes(spineInstance: Spine): GlobalMeshAnalysis {
   const skeleton = spineInstance.skeleton;
   const animations = spineInstance.skeleton.data.animations;
 
@@ -110,10 +136,8 @@ export function analyzeMeshes(spineInstance: Spine): { html: string, metrics: an
   let weightedMeshCount = 0;
   let deformedMeshCount = 0;
   
-  const meshesWithChangesInTimelines = new Map();
-  const meshWorldVerticesLengths = new Map<string, number>();
-  const meshesWithBoneWeights = new Map<string, number>();
-  const meshesWithParents = new Map<string, boolean>();
+  const meshesWithChangesInTimelines = new Map<string, boolean>();
+  const meshInfos: MeshInfo[] = [];
   
   // Count total meshes and analyze properties
   skeleton.slots.forEach((slot) => {
@@ -124,23 +148,30 @@ export function analyzeMeshes(spineInstance: Spine): { html: string, metrics: an
       // Count vertices
       const vertexCount = attachment.worldVerticesLength / 2;
       totalVertices += vertexCount;
-      meshWorldVerticesLengths.set(slot.data.name, vertexCount);
       
       // Track meshes with bone weights
-      if (attachment.bones?.length) {
+      const hasBoneWeights = (attachment.bones?.length ?? 0) > 0;
+      if (hasBoneWeights) {
         weightedMeshCount++;
-        meshesWithBoneWeights.set(slot.data.name, attachment.bones.length);
       }
       
+      const hasParentMesh = attachment.getParentMesh() != null;
+      
+      meshInfos.push({
+        slotName: slot.data.name,
+        vertices: vertexCount,
+        isDeformed: false, // Will be updated below
+        boneWeights: attachment.bones?.length || 0,
+        hasParentMesh
+      });
+      
       meshesWithChangesInTimelines.set(slot.data.name, false);
-      meshesWithParents.set(slot.data.name, attachment.getParentMesh() != null);
     }
   });
   
   // Analyze animations for mesh changes
   animations.forEach((animation) => {
-    const timelines = animation.timelines;
-    timelines.forEach((timeline) => {
+    animation.timelines.forEach((timeline) => {
       if (timeline instanceof DeformTimeline) {
         const slotIndex = timeline.slotIndex;
         const slot = skeleton.slots[slotIndex];
@@ -150,115 +181,40 @@ export function analyzeMeshes(spineInstance: Spine): { html: string, metrics: an
           if (!meshesWithChangesInTimelines.get(slot.data.name)) {
             deformedMeshCount++;
             meshesWithChangesInTimelines.set(slot.data.name, true);
+            
+            // Update mesh info
+            const meshInfo = meshInfos.find(m => m.slotName === slot.data.name);
+            if (meshInfo) {
+              meshInfo.isDeformed = true;
+            }
           }
         }
       }
     });
   });
   
-  // Convert to array for easier rendering in table
-  const meshData = Array.from(meshWorldVerticesLengths.keys()).map(key => ({
-    slotName: key,
-    vertices: meshWorldVerticesLengths.get(key) || 0,
-    isDeformed: meshesWithChangesInTimelines.get(key) || false,
-    boneWeights: meshesWithBoneWeights.get(key) || 0,
-    hasParentMesh: meshesWithParents.get(key) || false
-  }));
-  
   // Sort by vertex count descending
-  meshData.sort((a, b) => b.vertices - a.vertices);
+  meshInfos.sort((a, b) => b.vertices - a.vertices);
   
   // Calculate mesh complexity metrics for performance score
-  const meshComplexityMetrics = {
+  const metrics: MeshMetrics = {
+    activeMeshCount: totalMeshCount,
     totalMeshCount,
     totalVertices,
     weightedMeshCount,
     deformedMeshCount,
     avgVerticesPerMesh: totalMeshCount > 0 ? totalVertices / totalMeshCount : 0,
-    highVertexMeshes: meshData.filter(mesh => mesh.vertices > 50).length,
-    complexMeshes: meshData.filter(mesh => mesh.vertices > 20 && (mesh.isDeformed || mesh.boneWeights > 0)).length,
+    highVertexMeshes: meshInfos.filter(mesh => mesh.vertices > 50).length,
+    complexMeshes: meshInfos.filter(mesh => mesh.vertices > 20 && (mesh.isDeformed || mesh.boneWeights > 0)).length,
     score: 0
   };
   
   // Calculate mesh score using logarithmic scale
-  const meshScore = calculateMeshScore(meshComplexityMetrics);
-  meshComplexityMetrics.score = meshScore;
+  const meshScore = calculateMeshScore(metrics);
+  metrics.score = meshScore;
   
-  // Generate HTML for table
-  let html = `
-    <div class="mesh-analysis">
-      <h3>${i18n.t('analysis.mesh.title')}</h3>
-      <p>${i18n.t('analysis.mesh.statistics.totalMeshes', { count: totalMeshCount })}</p>
-      <p>${i18n.t('analysis.mesh.statistics.totalVertices', { count: totalVertices })}</p>
-      <p>${i18n.t('analysis.mesh.statistics.meshesWithDeformation', { count: deformedMeshCount })}</p>
-      <p>${i18n.t('analysis.mesh.statistics.meshesWithBoneWeights', { count: weightedMeshCount })}</p>
-      <p>${i18n.t('analysis.mesh.statistics.meshesWithParentMesh', { count: Array.from(meshesWithParents.values()).filter(Boolean).length })}</p>
-      
-      <div class="performance-score">
-        <h4>${i18n.t('analysis.mesh.performanceScore.title', { score: meshScore.toFixed(1) })}</h4>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${meshScore}%; background-color: ${getScoreColor(meshScore)};"></div>
-        </div>
-      </div>
-      
-      <div class="analysis-metrics">
-        <p><strong>${i18n.t('analysis.mesh.formula.title')}</strong></p>
-        <code>${i18n.t('analysis.mesh.formula.description', { 
-          idealMeshCount: PERFORMANCE_FACTORS.IDEAL_MESH_COUNT,
-          idealVertexCount: PERFORMANCE_FACTORS.IDEAL_VERTEX_COUNT,
-          deformedFactor: PERFORMANCE_FACTORS.MESH_DEFORMED_FACTOR,
-          weightedFactor: PERFORMANCE_FACTORS.MESH_WEIGHTED_FACTOR
-        })}</code>
-      </div>
-      
-      <table class="benchmark-table">
-        <thead>
-          <tr>
-            <th>${i18n.t('analysis.mesh.tableHeaders.slot')}</th>
-            <th>${i18n.t('analysis.mesh.tableHeaders.vertices')}</th>
-            <th>${i18n.t('analysis.mesh.tableHeaders.deformed')}</th>
-            <th>${i18n.t('analysis.mesh.tableHeaders.boneWeights')}</th>
-            <th>${i18n.t('analysis.mesh.tableHeaders.hasParentMesh')}</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
-  
-  meshData.forEach(item => {
-    // Determine row color based on vertex count and deformation
-    let rowClass = '';
-    if (item.vertices > 100 || (item.vertices > 50 && item.isDeformed)) {
-      rowClass = 'row-danger';
-    } else if (item.vertices > 50 || (item.vertices > 20 && item.isDeformed)) {
-      rowClass = 'row-warning';
-    }
-    
-    html += `
-      <tr class="${rowClass}">
-        <td>${item.slotName}</td>
-        <td>${item.vertices}</td>
-        <td>${item.isDeformed ? i18n.t('analysis.mesh.values.yes') : i18n.t('analysis.mesh.values.no')}</td>
-        <td>${item.boneWeights}</td>
-        <td>${item.hasParentMesh ? i18n.t('analysis.mesh.values.yes') : i18n.t('analysis.mesh.values.no')}</td>
-      </tr>
-    `;
-  });
-  
-  html += `
-        </tbody>
-      </table>
-      
-      <div class="analysis-notes">
-        <h4>${i18n.t('analysis.mesh.notes.title')}</h4>
-        <ul>
-          <li><strong>${i18n.t('analysis.mesh.notes.vertexCount')}</strong></li>
-          <li><strong>${i18n.t('analysis.mesh.notes.deformation', { factor: PERFORMANCE_FACTORS.MESH_DEFORMED_FACTOR })}</strong></li>
-          <li><strong>${i18n.t('analysis.mesh.notes.boneWeights', { factor: PERFORMANCE_FACTORS.MESH_WEIGHTED_FACTOR })}</strong></li>
-          <li><strong>${i18n.t('analysis.mesh.notes.optimizationTip')}</strong></li>
-        </ul>
-      </div>
-    </div>
-  `;
-  
-  return {html, metrics: meshComplexityMetrics};
+  return {
+    meshes: meshInfos,
+    metrics
+  };
 }

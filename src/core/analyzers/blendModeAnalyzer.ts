@@ -1,8 +1,23 @@
 import { Animation, BlendMode, Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
-import { calculateBlendModeScore, getScoreColor } from "../utils/scoreCalculator";
+import { calculateBlendModeScore } from "../utils/scoreCalculator";
 import { ActiveComponents } from "../utils/animationUtils";
-import i18n from "../../i18n";
+
+export interface BlendModeMetrics {
+  activeNonNormalCount: number;
+  activeAdditiveCount: number;
+  activeMultiplyCount: number;
+  nonNormalBlendModeCount: number; // For compatibility
+  additiveCount: number; // For compatibility
+  multiplyCount: number; // For compatibility
+  score: number;
+}
+
+export interface GlobalBlendModeAnalysis {
+  blendModeCounts: Map<BlendMode, number>;
+  slotsWithNonNormalBlendMode: Map<string, BlendMode>;
+  metrics: BlendModeMetrics;
+}
 
 /**
  * Analyzes blend modes for a specific animation
@@ -15,7 +30,7 @@ export function analyzeBlendModesForAnimation(
   spineInstance: Spine,
   animation: Animation,
   activeComponents: ActiveComponents
-): any {
+): BlendModeMetrics {
   const skeleton = spineInstance.skeleton;
   
   let activeNonNormalCount = 0;
@@ -60,9 +75,11 @@ export function analyzeBlendModesForAnimation(
 }
 
 /**
- * Original function for global blend mode analysis (kept for backward compatibility)
+ * Analyzes global blend modes across the entire skeleton
+ * @param spineInstance The Spine instance to analyze
+ * @returns Global blend mode analysis data
  */
-export function analyzeBlendModes(spineInstance: Spine): { html: string, metrics: any } {
+export function analyzeGlobalBlendModes(spineInstance: Spine): GlobalBlendModeAnalysis {
   const blendModeCount = new Map<BlendMode, number>();
   const slotsWithNonNormalBlendMode = new Map<string, BlendMode>();
   
@@ -93,108 +110,19 @@ export function analyzeBlendModes(spineInstance: Spine): { html: string, metrics
   // Calculate blend mode score
   const blendModeScore = calculateBlendModeScore(slotsWithNonNormalBlendMode.size, additiveCount);
   
-  const metrics = {
+  const metrics: BlendModeMetrics = {
+    activeNonNormalCount: slotsWithNonNormalBlendMode.size,
     nonNormalBlendModeCount: slotsWithNonNormalBlendMode.size,
+    activeAdditiveCount: additiveCount,
     additiveCount,
+    activeMultiplyCount: multiplyCount,
     multiplyCount,
     score: blendModeScore
   };
-  let html = `
-    <div class="blend-mode-analysis">
-      <h3>${i18n.t('analysis.blendMode.title')}</h3>
-      <p>${i18n.t('analysis.blendMode.statistics.nonNormalBlendModes', { count: slotsWithNonNormalBlendMode.size })}</p>
-      <p>${i18n.t('analysis.blendMode.statistics.additiveBlendModes', { count: additiveCount })}</p>
-      <p>${i18n.t('analysis.blendMode.statistics.multiplyBlendModes', { count: multiplyCount })}</p>
-      
-      <div class="performance-score">
-        <h4>${i18n.t('analysis.blendMode.performanceScore.title', { score: blendModeScore.toFixed(1) })}</h4>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${blendModeScore}%; background-color: ${getScoreColor(blendModeScore)};"></div>
-        </div>
-      </div>
-      
-      <div class="analysis-metrics">
-        <p><strong>${i18n.t('analysis.blendMode.formula.title')}</strong></p>
-        <code>${i18n.t('analysis.blendMode.formula.description', { idealBlendModeCount: PERFORMANCE_FACTORS.IDEAL_BLEND_MODE_COUNT })}</code>
-      </div>
-      
-      <table class="benchmark-table">
-        <thead>
-          <tr>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.blendMode')}</th>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.count')}</th>
-          </tr>
-        </thead>
-        <tbody>
-        <tbody>
-  `;
   
-  // Sort by frequency
-  const sortedCounts = Array.from(blendModeCount.entries())
-    .sort((a, b) => b[1] - a[1]);
-  
-  sortedCounts.forEach(([mode, count]) => {
-    if (count > 0) {
-      const modeName = BlendMode[mode];
-      const rowClass = mode !== BlendMode.Normal && count > 0 
-        ? 'row-warning' 
-        : '';
-      
-      html += `
-        <tr class="${rowClass}">
-          <td>${modeName}</td>
-          <td>${count}</td>
-        </tr>
-      `;
-    }
-  });
-  
-  html += `
-        </tbody>
-      </table>
-  `;
-  
-  if (slotsWithNonNormalBlendMode.size > 0) {
-    html += `
-      <h4>${i18n.t('analysis.blendMode.slotsWithNonNormalTitle')}</h4>
-      <table class="benchmark-table">
-        <thead>
-          <tr>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.slotName')}</th>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.blendMode')}</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-    
-    slotsWithNonNormalBlendMode.forEach((mode, slotName) => {
-      html += `
-        <tr>
-          <td>${slotName}</td>
-          <td>${BlendMode[mode]}</td>
-        </tr>
-      `;
-    });
-    
-    html += `
-        </tbody>
-      </table>
-      
-      <div class="analysis-notes">
-        <h4>${i18n.t('analysis.blendMode.notes.title')}</h4>
-        <ul>
-          <li><strong>${i18n.t('analysis.blendMode.notes.normalBlendMode')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.nonNormalBlendModes')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.renderingCost')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.additiveBlend')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.multiplyBlend')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.recommendation')}</strong></li>
-        </ul>
-      </div>
-    `;
-  }
-  
-  html += `</div>`;
-  
-  return {html, metrics};
+  return {
+    blendModeCounts: blendModeCount,
+    slotsWithNonNormalBlendMode,
+    metrics
+  };
 }

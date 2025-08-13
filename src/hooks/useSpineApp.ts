@@ -4,20 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackgroundManager } from '../core/BackgroundManager';
 import { CameraContainer } from '../core/CameraContainer';
-import { SpineAnalyzer, PerAnimationBenchmarkData } from '../core/SpineAnalyzer';
+import { SpineAnalyzer, SpineAnalysisResult } from '../core/SpineAnalyzer';
 import { SpineLoader } from '../core/SpineLoader';
 import { useToast } from './ToastContext';
-
-export interface BenchmarkData {
-  meshAnalysis: any;
-  clippingAnalysis: any;
-  blendModeAnalysis: any;
-  skeletonTree: any;
-  summary: any;
-  physicsAnalysis: any;
-  animationAnalyses?: any[]; // For per-animation data
-  medianScore?: number; // Median score across animations
-}
 
 export interface DebugFlags {
   showBones: boolean;
@@ -37,7 +26,7 @@ export function useSpineApp(app: Application | null) {
   const { i18n } = useTranslation();
   const [spineInstance, setSpineInstance] = useState<Spine | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [benchmarkData, setBenchmarkData] = useState<PerAnimationBenchmarkData | null>(null);
+  const [benchmarkData, setBenchmarkData] = useState<SpineAnalysisResult | null>(null);
   
   // Separate flags for each debug visualization type
   const [meshesVisible, setMeshesVisible] = useState(false);
@@ -82,8 +71,8 @@ export function useSpineApp(app: Application | null) {
   // Effect to regenerate benchmark data when language changes
   useEffect(() => {
     if (spineInstance) {
-      const analysisData = SpineAnalyzer.analyze(spineInstance) as PerAnimationBenchmarkData;
-      setBenchmarkData(analysisData);
+      const analysisResult = SpineAnalyzer.analyze(spineInstance);
+      setBenchmarkData(analysisResult);
     }
   }, [i18n.language, spineInstance]);
 
@@ -97,6 +86,8 @@ export function useSpineApp(app: Application | null) {
     setIsLoading(true);
     
     try {
+      console.log('Loading Spine files from URLs:', { jsonUrl, atlasUrl });
+      
       // Remove previous Spine instance if exists
       if (spineInstance) {
         cameraContainerRef.current.removeChild(spineInstance);
@@ -115,9 +106,9 @@ export function useSpineApp(app: Application | null) {
       cameraContainerRef.current.addChild(newSpineInstance);
       cameraContainerRef.current.lookAtChild(newSpineInstance);
       
-      // Analyze spine data with per-animation analysis
-      const analysisData = SpineAnalyzer.analyze(newSpineInstance) as PerAnimationBenchmarkData;
-      setBenchmarkData(analysisData);
+      // Analyze spine data with new analyzer
+      const analysisResult = SpineAnalyzer.analyze(newSpineInstance);
+      setBenchmarkData(analysisResult);
       
       setSpineInstance(newSpineInstance);
       addToast('Spine files loaded successfully from URLs', 'success');
@@ -220,9 +211,9 @@ export function useSpineApp(app: Application | null) {
       cameraContainerRef.current.addChild(newSpineInstance);
       cameraContainerRef.current.lookAtChild(newSpineInstance);
       
-      // Analyze spine data with per-animation analysis
-      const analysisData = SpineAnalyzer.analyze(newSpineInstance) as PerAnimationBenchmarkData;
-      setBenchmarkData(analysisData);
+      // Analyze spine data with new analyzer
+      const analysisResult = SpineAnalyzer.analyze(newSpineInstance);
+      setBenchmarkData(analysisResult);
       
       setSpineInstance(newSpineInstance);
       addToast('Spine files loaded successfully', 'success');
