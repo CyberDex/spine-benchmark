@@ -13,6 +13,8 @@ import { useSafeLocalStorage } from './hooks/useSafeLocalStorage';
 import { useSpineApp } from './hooks/useSpineApp';
 import { useCommandRegistration } from './hooks/useCommandRegistration';
 import { useUrlHash } from './hooks/useUrlHash';
+import { commandRegistry } from './utils/commandRegistry';
+
 
 // URL Input Modal Component
 const UrlInputModal: React.FC<{
@@ -543,8 +545,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-// Import command registry for registration
-import { commandRegistry } from './utils/commandRegistry';
 
 export default App;
