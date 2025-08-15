@@ -3,8 +3,9 @@ const path = require('path');
 
 // Configuration
 const outputFile = 'concatenated_files.md';
-const dirsToSearch = ['.', './src'];
+const dirsToSearch = ['./src'];
 const excludedDirs = ['node_modules', 'examples', 'assets', '.git'];
+const excludedExtensions = ['.json', '.css'];
 
 // Improved function to check if a path should be excluded
 function shouldExclude(filePath) {
@@ -24,6 +25,12 @@ function shouldExclude(filePath) {
   }
   
   return false;
+}
+
+// Function to check if a file should be excluded based on extension
+function shouldExcludeFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  return excludedExtensions.includes(ext);
 }
 
 // Function to recursively get all files in a directory
@@ -47,7 +54,10 @@ function getAllFiles(dirPath, arrayOfFiles = []) {
       if (fs.statSync(fullPath).isDirectory()) {
         arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
       } else {
-        arrayOfFiles.push(fullPath);
+        // Skip files with excluded extensions
+        if (!shouldExcludeFile(fullPath)) {
+          arrayOfFiles.push(fullPath);
+        }
       }
     });
   } catch (err) {
@@ -80,6 +90,7 @@ async function concatenateFiles() {
     fs.writeFileSync(outputFile, '');
     
     console.log(`Starting to process ${allFiles.length} files...`);
+    console.log(`Excluding files with extensions: ${excludedExtensions.join(', ')}`);
     let processedCount = 0;
     
     // Process each file

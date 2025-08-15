@@ -1,7 +1,7 @@
 export interface Command {
   id: string;
   title: string;
-  category: 'recently-used' | 'debug' | 'animation' | 'skin' | 'performance' | 'language';
+  category: 'recently-used' | 'debug' | 'animation' | 'skin' | 'performance' | 'language' | 'file';
   description?: string;
   icon?: string;
   execute: () => void | Promise<void>;
@@ -134,6 +134,11 @@ class CommandRegistry {
         commands: query ? recentCommands.filter(cmd =>
           cmd.title.toLowerCase().includes(query.toLowerCase())
         ) : recentCommands
+      },
+      {
+        id: 'file',
+        title: t ? t('commands.categories.file') : 'File Commands',
+        commands: commands.filter(cmd => cmd.category === 'file')
       },
       {
         id: 'debug',

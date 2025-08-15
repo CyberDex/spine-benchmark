@@ -16,6 +16,171 @@ export class SpineLoader {
     this.app = app;
   }
 
+  /**
+   * Load Spine files from remote URLs (simplified approach similar to widget)
+   * @param jsonUrl URL to the JSON file
+   * @param atlasUrl URL to the atlas file
+   * @returns Spine instance or null
+   */
+  public async loadSpineFromUrls(jsonUrl: string, atlasUrl: string): Promise<Spine | null> {
+    try {
+      console.log('Loading Spine files from URLs:', { jsonUrl, atlasUrl });
+      
+      // Generate unique aliases for caching
+      const timestamp = Date.now();
+      const atlasAlias = `atlas-${timestamp}-${atlasUrl}`;
+      const jsonAlias = `json-${timestamp}-${jsonUrl}`;
+      
+      // Add assets to PIXI
+      Assets.add({ alias: atlasAlias, src: atlasUrl });
+      Assets.add({ alias: jsonAlias, src: jsonUrl });
+      
+      // First, fetch the atlas to extract image URLs
+      const atlasResponse = await fetch(atlasUrl);
+      if (!atlasResponse.ok) {
+        throw new Error(`Failed to fetch atlas: ${atlasResponse.statusText}`);
+      }
+      const atlasText = await atlasResponse.text();
+      
+      // Extract and add image assets
+      const imageUrls = this.extractImageUrlsFromAtlas(atlasText, atlasUrl);
+      console.log('Extracted image URLs:', imageUrls);
+      
+      // Add image assets
+      for (const [imageName, imageUrl] of Object.entries(imageUrls)) {
+        const imageAlias = `${timestamp}-${imageName}`;
+        Assets.add({ alias: imageAlias, src: imageUrl });
+      }
+      
+      // Load all assets
+      const allAliases = [atlasAlias, jsonAlias, ...Object.keys(imageUrls).map(name => `${timestamp}-${name}`)];
+      await Assets.load(allAliases);
+      
+      // Fetch JSON data
+      const jsonResponse = await fetch(jsonUrl);
+      if (!jsonResponse.ok) {
+        throw new Error(`Failed to fetch JSON: ${jsonResponse.statusText}`);
+      }
+      let skeletonData = await jsonResponse.json();
+      
+      // Check for Spine version compatibility
+      if (skeletonData && skeletonData.spine && skeletonData.spine.startsWith('4.1')) {
+        console.log('Updating Spine version from 4.1 to 4.2.0');
+        skeletonData.spine = '4.2.0';
+      }
+      
+      // Create texture atlas
+      const spineAtlas = new TextureAtlas(atlasText);
+      
+      // Assign textures to atlas pages
+      for (const page of spineAtlas.pages) {
+        const pageName = page.name;
+        const imageAlias = `${timestamp}-${pageName}`;
+        const texture = await Assets.load(imageAlias);
+        
+        if (!texture) {
+          // Try without extension
+          const nameWithoutExt = pageName.substring(0, pageName.lastIndexOf('.'));
+          const altAlias = `${timestamp}-${nameWithoutExt}`;
+          const altTexture = await Assets.load(altAlias);
+          
+          if (!altTexture) {
+            console.error(`Missing texture for page: ${pageName}`);
+            throw new Error(`Missing texture for page: ${pageName}`);
+          }
+          
+          page.setTexture(SpineTexture.from(altTexture.source));
+        } else {
+          page.setTexture(SpineTexture.from(texture.source));
+        }
+      }
+      
+      // Create attachment loader and skeleton
+      const atlasLoader = new AtlasAttachmentLoader(spineAtlas);
+      const skeletonJson = new SkeletonJson(atlasLoader);
+      const skeletonDataObj = skeletonJson.readSkeletonData(skeletonData);
+      
+      // Create and return spine instance
+      return new Spine(skeletonDataObj);
+      
+    } catch (error) {
+      console.error('Error loading Spine files from URLs:', error);
+      throw error;
+    } finally {
+      // Note: We don't unload assets here as they might be needed for the spine instance
+    }
+  }
+
+  /**
+   * Extract image URLs from atlas content, resolving relative paths
+   * @param atlasText The atlas file content
+   * @param atlasUrl The URL of the atlas file (used to resolve relative paths)
+   * @returns Map of image names to URLs
+   */
+  private extractImageUrlsFromAtlas(atlasText: string, atlasUrl: string): Record<string, string> {
+    const lines = atlasText.split('\n');
+    const imageUrls: Record<string, string> = {};
+    const atlasBaseUrl = atlasUrl.substring(0, atlasUrl.lastIndexOf('/') + 1);
+    
+    let currentName = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line === '') continue;
+      
+      if (line.startsWith('size:')) {
+        if (currentName) {
+          // Construct full URL for the image
+          const imageUrl = this.resolveImageUrl(currentName, atlasBaseUrl);
+          imageUrls[currentName] = imageUrl;
+          
+          // Also add without extension
+          const nameWithoutExt = currentName.substring(0, currentName.lastIndexOf('.'));
+          if (nameWithoutExt) {
+            imageUrls[nameWithoutExt] = imageUrl;
+          }
+        }
+        currentName = '';
+      } else if (currentName === '') {
+        // If we don't have a current name and this line is not a property,
+        // it must be an image name
+        if (!line.includes(':')) {
+          currentName = line;
+        }
+      }
+    }
+    
+    // Add the last image name if we have one
+    if (currentName) {
+      const imageUrl = this.resolveImageUrl(currentName, atlasBaseUrl);
+      imageUrls[currentName] = imageUrl;
+      
+      const nameWithoutExt = currentName.substring(0, currentName.lastIndexOf('.'));
+      if (nameWithoutExt) {
+        imageUrls[nameWithoutExt] = imageUrl;
+      }
+    }
+    
+    return imageUrls;
+  }
+
+  /**
+   * Resolve image URL relative to atlas URL
+   * @param imageName The image name from the atlas
+   * @param atlasBaseUrl The base URL of the atlas file
+   * @returns Full URL to the image
+   */
+  private resolveImageUrl(imageName: string, atlasBaseUrl: string): string {
+    // If the image name is already a full URL, return it
+    if (imageName.startsWith('http://') || imageName.startsWith('https://')) {
+      return imageName;
+    }
+    
+    // Otherwise, resolve it relative to the atlas URL
+    return atlasBaseUrl + imageName;
+  }
+
   public async loadSpineFiles(files: FileList): Promise<Spine | null> {
     try {
       const acceptedFiles = Array.from(files);

@@ -4,18 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BackgroundManager } from '../core/BackgroundManager';
 import { CameraContainer } from '../core/CameraContainer';
-import { SpineAnalyzer } from '../core/SpineAnalyzer';
+import { SpineAnalyzer, SpineAnalysisResult } from '../core/SpineAnalyzer';
 import { SpineLoader } from '../core/SpineLoader';
 import { useToast } from './ToastContext';
-
-export interface BenchmarkData {
-  meshAnalysis: any;
-  clippingAnalysis: any;
-  blendModeAnalysis: any;
-  skeletonTree: any;
-  summary: any;
-  physicsAnalysis: any;
-}
 
 export interface DebugFlags {
   showBones: boolean;
@@ -35,7 +26,7 @@ export function useSpineApp(app: Application | null) {
   const { i18n } = useTranslation();
   const [spineInstance, setSpineInstance] = useState<Spine | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [benchmarkData, setBenchmarkData] = useState<BenchmarkData | null>(null);
+  const [benchmarkData, setBenchmarkData] = useState<SpineAnalysisResult | null>(null);
   
   // Separate flags for each debug visualization type
   const [meshesVisible, setMeshesVisible] = useState(false);
@@ -80,10 +71,78 @@ export function useSpineApp(app: Application | null) {
   // Effect to regenerate benchmark data when language changes
   useEffect(() => {
     if (spineInstance) {
-      const analysisData = SpineAnalyzer.analyze(spineInstance);
-      setBenchmarkData(analysisData);
+      const analysisResult = SpineAnalyzer.analyze(spineInstance);
+      setBenchmarkData(analysisResult);
     }
   }, [i18n.language, spineInstance]);
+
+  // Function to load spine files from URLs
+  const loadSpineFromUrls = async (jsonUrl: string, atlasUrl: string) => {
+    if (!app || !cameraContainerRef.current) {
+      addToast('Application not initialized', 'error');
+      throw new Error('Application not initialized');
+    }
+
+    setIsLoading(true);
+    
+    try {
+      console.log('Loading Spine files from URLs:', { jsonUrl, atlasUrl });
+      
+      // Remove previous Spine instance if exists
+      if (spineInstance) {
+        cameraContainerRef.current.removeChild(spineInstance);
+        setSpineInstance(null);
+      }
+
+      // Load spine files from URLs
+      const loader = new SpineLoader(app);
+      const newSpineInstance = await loader.loadSpineFromUrls(jsonUrl, atlasUrl);
+      
+      if (!newSpineInstance) {
+        throw new Error('Failed to load Spine instance from URLs');
+      }
+
+      // Add to camera container and look at it
+      cameraContainerRef.current.addChild(newSpineInstance);
+      cameraContainerRef.current.lookAtChild(newSpineInstance);
+      
+      // Analyze spine data with new analyzer
+      const analysisResult = SpineAnalyzer.analyze(newSpineInstance);
+      setBenchmarkData(analysisResult);
+      
+      setSpineInstance(newSpineInstance);
+      addToast('Spine files loaded successfully from URLs', 'success');
+      
+      // Reset all debug flags
+      setMeshesVisible(false);
+      setPhysicsVisible(false);
+      setIkVisible(false);
+      
+      // Ensure debug visualization is turned off by default
+      if (cameraContainerRef.current) {
+        cameraContainerRef.current.setDebugFlags({
+          showBones: false,
+          showMeshTriangles: false,
+          showMeshHull: false,
+          showRegionAttachments: false,
+          showBoundingBoxes: false,
+          showPaths: false,
+          showClipping: false,
+          showPhysics: false,
+          showIkConstraints: false,
+          showTransformConstraints: false,
+          showPathConstraints: false
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error loading Spine files from URLs:', error);
+      addToast(`Error loading Spine files: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Function to load spine files
   const loadSpineFiles = async (files: FileList) => {
@@ -152,9 +211,9 @@ export function useSpineApp(app: Application | null) {
       cameraContainerRef.current.addChild(newSpineInstance);
       cameraContainerRef.current.lookAtChild(newSpineInstance);
       
-      // Analyze spine data
-      const analysisData = SpineAnalyzer.analyze(newSpineInstance);
-      setBenchmarkData(analysisData);
+      // Analyze spine data with new analyzer
+      const analysisResult = SpineAnalyzer.analyze(newSpineInstance);
+      setBenchmarkData(analysisResult);
       
       setSpineInstance(newSpineInstance);
       addToast('Spine files loaded successfully', 'success');
@@ -352,6 +411,7 @@ export function useSpineApp(app: Application | null) {
   return {
     spineInstance,
     loadSpineFiles,
+    loadSpineFromUrls,
     isLoading,
     benchmarkData,
     setBackgroundImage,

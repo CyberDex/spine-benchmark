@@ -1,14 +1,134 @@
-import { BlendMode, Spine } from "@esotericsoftware/spine-pixi-v8";
+import { Animation, BlendMode, Physics, Spine } from "@esotericsoftware/spine-pixi-v8";
 import { PERFORMANCE_FACTORS } from "../constants/performanceFactors";
-import { calculateBlendModeScore, getScoreColor } from "../utils/scoreCalculator";
-import i18n from "../../i18n";
+import { calculateBlendModeScore } from "../utils/scoreCalculator";
+import { ActiveComponents } from "../utils/animationUtils";
+
+export interface BlendModeMetrics {
+  activeNonNormalCount: number;
+  activeAdditiveCount: number;
+  activeMultiplyCount: number;
+  nonNormalBlendModeCount: number; // For compatibility
+  additiveCount: number; // For compatibility
+  multiplyCount: number; // For compatibility
+  score: number;
+}
+
+export interface GlobalBlendModeAnalysis {
+  blendModeCounts: Map<BlendMode, number>;
+  slotsWithNonNormalBlendMode: Map<string, BlendMode>;
+  metrics: BlendModeMetrics;
+}
 
 /**
- * Analyzes blend modes in a Spine instance
+ * Analyzes blend modes for a specific animation frame by frame
  * @param spineInstance The Spine instance to analyze
- * @returns HTML output and metrics for blend mode analysis
+ * @param animation The animation to analyze
+ * @param activeComponents Components active in this animation
+ * @returns Metrics for blend mode analysis
  */
-export function analyzeBlendModes(spineInstance: Spine): { html: string, metrics: any } {
+export function analyzeBlendModesForAnimation(
+  spineInstance: Spine,
+  animation: Animation,
+  activeComponents: ActiveComponents
+): BlendModeMetrics {
+  const skeleton = spineInstance.skeleton;
+  const animationState = spineInstance.state;
+  
+  // Store current animation state to restore later
+  const currentTracks = [];
+  for (let i = 0; i < animationState.tracks.length; i++) {
+    const track = animationState.tracks[i];
+    if (track) {
+      currentTracks.push({
+        index: i,
+        animation: track.animation,
+        time: track.trackTime,
+        loop: track.loop
+      });
+    }
+  }
+  
+  // Clear animation state and set our target animation
+  animationState.clearTracks();
+  animationState.setAnimation(0, animation.name, false);
+  
+  // Sample rate: check every 1/30th of a second (30 FPS)
+  const sampleRate = 1 / 60;
+  const duration = animation.duration;
+  let maxNonNormalCount = 0;
+  let maxAdditiveCount = 0;
+  let maxMultiplyCount = 0;
+  
+  console.log(`Analyzing blend modes frame by frame for ${animation.name}, duration: ${duration}s`);
+  
+  // Step through the animation frame by frame
+  for (let time = 0; time <= duration; time += sampleRate) {
+    // Update animation to current time
+    animationState.update(0);
+    animationState.tracks[0]!.trackTime = time;
+    animationState.apply(skeleton);
+    skeleton.update(0);
+    skeleton.updateWorldTransform(Physics.update);
+    
+    // Count visible blend modes at this frame
+    let frameNonNormalCount = 0;
+    let frameAdditiveCount = 0;
+    let frameMultiplyCount = 0;
+    
+    activeComponents.slots.forEach(slotName => {
+      const slot = skeleton.slots.find((s: any) => s.data.name === slotName);
+      
+      if (slot && slot.color.a > 0 && slot.attachment) { // Only count visible slots
+        const blendMode = slot.data.blendMode;
+        
+        if (blendMode !== BlendMode.Normal) {
+          frameNonNormalCount++;
+          
+          if (blendMode === BlendMode.Additive) {
+            frameAdditiveCount++;
+          } else if (blendMode === BlendMode.Multiply) {
+            frameMultiplyCount++;
+          }
+        }
+      }
+    });
+    
+    // Update maximums
+    maxNonNormalCount = Math.max(maxNonNormalCount, frameNonNormalCount);
+    maxAdditiveCount = Math.max(maxAdditiveCount, frameAdditiveCount);
+    maxMultiplyCount = Math.max(maxMultiplyCount, frameMultiplyCount);
+  }
+  
+  console.log(`Max concurrent blend modes - Non-normal: ${maxNonNormalCount}, Additive: ${maxAdditiveCount}, Multiply: ${maxMultiplyCount}`);
+  
+  // Restore original animation state
+  animationState.clearTracks();
+  currentTracks.forEach(track => {
+    const newTrack = animationState.setAnimation(track.index, track.animation!.name, track.loop);
+    newTrack.trackTime = track.time;
+  });
+  animationState.apply(skeleton);
+  
+  // Calculate blend mode score based on maximum concurrent blend modes
+  const blendModeScore = calculateBlendModeScore(maxNonNormalCount, maxAdditiveCount);
+  
+  return {
+    activeNonNormalCount: maxNonNormalCount,
+    nonNormalBlendModeCount: maxNonNormalCount, // For compatibility
+    activeAdditiveCount: maxAdditiveCount,
+    additiveCount: maxAdditiveCount, // For compatibility
+    activeMultiplyCount: maxMultiplyCount,
+    multiplyCount: maxMultiplyCount, // For compatibility
+    score: blendModeScore
+  };
+}
+
+/**
+ * Analyzes global blend modes across the entire skeleton
+ * @param spineInstance The Spine instance to analyze
+ * @returns Global blend mode analysis data
+ */
+export function analyzeGlobalBlendModes(spineInstance: Spine): GlobalBlendModeAnalysis {
   const blendModeCount = new Map<BlendMode, number>();
   const slotsWithNonNormalBlendMode = new Map<string, BlendMode>();
   
@@ -39,108 +159,19 @@ export function analyzeBlendModes(spineInstance: Spine): { html: string, metrics
   // Calculate blend mode score
   const blendModeScore = calculateBlendModeScore(slotsWithNonNormalBlendMode.size, additiveCount);
   
-  const metrics = {
+  const metrics: BlendModeMetrics = {
+    activeNonNormalCount: slotsWithNonNormalBlendMode.size,
     nonNormalBlendModeCount: slotsWithNonNormalBlendMode.size,
+    activeAdditiveCount: additiveCount,
     additiveCount,
+    activeMultiplyCount: multiplyCount,
     multiplyCount,
     score: blendModeScore
   };
-  let html = `
-    <div class="blend-mode-analysis">
-      <h3>${i18n.t('analysis.blendMode.title')}</h3>
-      <p>${i18n.t('analysis.blendMode.statistics.nonNormalBlendModes', { count: slotsWithNonNormalBlendMode.size })}</p>
-      <p>${i18n.t('analysis.blendMode.statistics.additiveBlendModes', { count: additiveCount })}</p>
-      <p>${i18n.t('analysis.blendMode.statistics.multiplyBlendModes', { count: multiplyCount })}</p>
-      
-      <div class="performance-score">
-        <h4>${i18n.t('analysis.blendMode.performanceScore.title', { score: blendModeScore.toFixed(1) })}</h4>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${blendModeScore}%; background-color: ${getScoreColor(blendModeScore)};"></div>
-        </div>
-      </div>
-      
-      <div class="analysis-metrics">
-        <p><strong>${i18n.t('analysis.blendMode.formula.title')}</strong></p>
-        <code>${i18n.t('analysis.blendMode.formula.description', { idealBlendModeCount: PERFORMANCE_FACTORS.IDEAL_BLEND_MODE_COUNT })}</code>
-      </div>
-      
-      <table class="benchmark-table">
-        <thead>
-          <tr>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.blendMode')}</th>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.count')}</th>
-          </tr>
-        </thead>
-        <tbody>
-        <tbody>
-  `;
   
-  // Sort by frequency
-  const sortedCounts = Array.from(blendModeCount.entries())
-    .sort((a, b) => b[1] - a[1]);
-  
-  sortedCounts.forEach(([mode, count]) => {
-    if (count > 0) {
-      const modeName = BlendMode[mode];
-      const rowClass = mode !== BlendMode.Normal && count > 0 
-        ? 'row-warning' 
-        : '';
-      
-      html += `
-        <tr class="${rowClass}">
-          <td>${modeName}</td>
-          <td>${count}</td>
-        </tr>
-      `;
-    }
-  });
-  
-  html += `
-        </tbody>
-      </table>
-  `;
-  
-  if (slotsWithNonNormalBlendMode.size > 0) {
-    html += `
-      <h4>${i18n.t('analysis.blendMode.slotsWithNonNormalTitle')}</h4>
-      <table class="benchmark-table">
-        <thead>
-          <tr>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.slotName')}</th>
-            <th>${i18n.t('analysis.blendMode.tableHeaders.blendMode')}</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-    
-    slotsWithNonNormalBlendMode.forEach((mode, slotName) => {
-      html += `
-        <tr>
-          <td>${slotName}</td>
-          <td>${BlendMode[mode]}</td>
-        </tr>
-      `;
-    });
-    
-    html += `
-        </tbody>
-      </table>
-      
-      <div class="analysis-notes">
-        <h4>${i18n.t('analysis.blendMode.notes.title')}</h4>
-        <ul>
-          <li><strong>${i18n.t('analysis.blendMode.notes.normalBlendMode')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.nonNormalBlendModes')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.renderingCost')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.additiveBlend')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.multiplyBlend')}</strong></li>
-          <li><strong>${i18n.t('analysis.blendMode.notes.recommendation')}</strong></li>
-        </ul>
-      </div>
-    `;
-  }
-  
-  html += `</div>`;
-  
-  return {html, metrics};
+  return {
+    blendModeCounts: blendModeCount,
+    slotsWithNonNormalBlendMode,
+    metrics
+  };
 }

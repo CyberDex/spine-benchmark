@@ -3,11 +3,19 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { XMarkIcon } from './Icons';
 import { IconButton } from './IconButton';
-import { BenchmarkData } from '../hooks/useSpineApp';
+import { SpineAnalysisResult } from '../core/SpineAnalyzer';
 import { useUrlHash } from '../hooks/useUrlHash';
 
+// Import analysis components
+import { Summary } from './analysis/Summary';
+import { MeshAnalysis } from './analysis/MeshAnalysis';
+import { ClippingAnalysis } from './analysis/ClippingAnalysis';
+import { BlendModeAnalysis } from './analysis/BlendModeAnalysis';
+import { PhysicsAnalysis } from './analysis/PhysicsAnalysis';
+import { SkeletonTree } from './analysis/SkeletonTree';
+
 interface InfoPanelProps {
-  data: BenchmarkData;
+  data: SpineAnalysisResult;
   onClose: () => void;
 }
 
@@ -36,6 +44,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ data, onClose }) => {
     document.body.appendChild(div);
     return div;
   })();
+  
   const tabs = [
     { id: 'summary', label: t('infoPanel.tabs.summary') },
     { id: 'meshAnalysis', label: t('infoPanel.tabs.meshAnalysis') },
@@ -48,41 +57,17 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ data, onClose }) => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'summary':
-        return (
-          <div className="tab-content">
-            <div dangerouslySetInnerHTML={{ __html: data.summary || `<p>${t('infoPanel.content.noData', { 0: 'summary' })}</p>` }} />
-          </div>
-        );
+        return <Summary data={data} />;
       case 'meshAnalysis':
-        return (
-          <div className="tab-content">
-            <div dangerouslySetInnerHTML={{ __html: data.meshAnalysis || `<p>${t('infoPanel.content.noData', { 0: 'mesh analysis' })}</p>` }} />
-          </div>
-        );
+        return <MeshAnalysis data={data} />;
       case 'clippingAnalysis':
-        return (
-          <div className="tab-content">
-            <div dangerouslySetInnerHTML={{ __html: data.clippingAnalysis || `<p>${t('infoPanel.content.noData', { 0: 'clipping analysis' })}</p>` }} />
-          </div>
-        );
+        return <ClippingAnalysis data={data} />;
       case 'blendModeAnalysis':
-        return (
-          <div className="tab-content">
-            <div dangerouslySetInnerHTML={{ __html: data.blendModeAnalysis || `<p>${t('infoPanel.content.noData', { 0: 'blend mode analysis' })}</p>` }} />
-          </div>
-        );
+        return <BlendModeAnalysis data={data} />;
       case 'physicsAnalysis':
-        return (
-          <div className="tab-content">
-            <div dangerouslySetInnerHTML={{ __html: data.physicsAnalysis || `<p>${t('infoPanel.content.noData', { 0: 'physics analysis' })}</p>` }} />
-          </div>
-        );
+        return <PhysicsAnalysis data={data} />;
       case 'skeletonTree':
-        return (
-          <div className="tab-content">
-            <div dangerouslySetInnerHTML={{ __html: data.skeletonTree || `<p>${t('infoPanel.content.noData', { 0: 'skeleton tree' })}</p>` }} />
-          </div>
-        );
+        return <SkeletonTree data={data} />;
       default:
         return <div>{t('infoPanel.content.selectTab')}</div>;
     }
@@ -116,7 +101,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ data, onClose }) => {
         </div>
         
         <div className="info-panel-content">
-          {renderTabContent()}
+          <div className="tab-content">
+            {renderTabContent()}
+          </div>
         </div>
       </div>
     </div>,
