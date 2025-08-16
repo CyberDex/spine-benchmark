@@ -226,7 +226,7 @@ export function useSpineApp(app: Application | null) {
       // Ensure debug visualization is turned off by default
       if (cameraContainerRef.current) {
         cameraContainerRef.current.setDebugFlags({
-          showBones: false,
+          showBones: true,
           showMeshTriangles: false,
           showMeshHull: false,
           showRegionAttachments: false,

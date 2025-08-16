@@ -1,0 +1,217 @@
+import { Container, Application } from 'pixi.js';
+import { Spine } from '@esotericsoftware/spine-pixi-v8';
+import { DebugLayer } from './DebugLayer';
+import { PathConstraintDebugLayer } from './layers/PathConstraintDebugLayer';
+import { IkConstraintDebugLayer } from './layers/IkConstraintDebugLayer';
+import { BoneDebugLayer } from './layers/BoneDebugLayer';
+
+export interface DebugFlags {
+  showBones: boolean;
+  showRegionAttachments: boolean;
+  showMeshTriangles: boolean;
+  showMeshHull: boolean;
+  showBoundingBoxes: boolean;
+  showPaths: boolean;
+  showClipping: boolean;
+  showPhysics: boolean;
+  showIkConstraints: boolean;
+  showTransformConstraints: boolean;
+  showPathConstraints: boolean;
+}
+
+export class DebugRendererManager {
+  private app: Application;
+  private container: Container;
+  private layers: Map<string, DebugLayer> = new Map();
+  private flags: DebugFlags;
+  private currentSpine: Spine | null = null;
+
+  constructor(app: Application) {
+    this.app = app;
+    this.container = new Container();
+    
+    // Initialize default flags
+    this.flags = {
+      showBones: true,
+      showRegionAttachments: false,
+      showMeshTriangles: false,
+      showMeshHull: false,
+      showBoundingBoxes: false,
+      showPaths: false,
+      showClipping: false,
+      showPhysics: false,
+      showIkConstraints: false,
+      showTransformConstraints: false,
+      showPathConstraints: false,
+    };
+
+    // Initialize debug layers
+    this.initializeLayers();
+  }
+
+  private initializeLayers(): void {
+    // Create bone layer (add this first as it's the base skeleton)
+    const boneLayer = new BoneDebugLayer({
+      app: this.app,
+      boneColor: 0xFFA,
+      jointColor: 0xFFF,
+      jointRadius: 3, // Make joints more visible
+      alpha: 1.0,
+      strokeWidth: 2, // Thicker lines for better visibility
+      showBones: true,
+      showJoints: true
+    });
+    
+    this.layers.set('bones', boneLayer);
+    this.container.addChild(boneLayer.getContainer());
+
+    // Create path constraint layer
+    const pathLayer = new PathConstraintDebugLayer({
+      app: this.app,
+      pathColor: 0x00ff00,
+      alpha: 1.0,
+      strokeWidth: 1,
+      showPath: true,
+      showStartEnd: true,
+      showBoneConnections: true,
+      showTarget: true
+    });
+    
+    this.layers.set('pathConstraints', pathLayer);
+    this.container.addChild(pathLayer.getContainer());
+
+    // Create IK constraint layer
+    const ikLayer = new IkConstraintDebugLayer({
+      app: this.app,
+      boneColor: 0x00ffff,
+      targetColor: 0x00ffff,
+      startCircleColor: 0x00ffff,
+      alpha: 1.0,
+      strokeWidth: 1,
+      showBoneChain: true,
+      showTarget: true,
+      showStartCircle: true
+    });
+    
+    this.layers.set('ikConstraints', ikLayer);
+    this.container.addChild(ikLayer.getContainer());
+
+    // TODO: Add other layers as we create them
+    // this.layers.set('meshes', new MeshDebugLayer({ app: this.app }));
+    // this.layers.set('physics', new PhysicsDebugLayer({ app: this.app }));
+    // etc...
+  }
+
+  public getContainer(): Container {
+    return this.container;
+  }
+
+  public setSpine(spine: Spine | null): void {
+    this.currentSpine = spine;
+    if (!spine) {
+      this.clearAll();
+    }
+  }
+
+  public update(): void {
+    if (!this.currentSpine) {
+      console.log('DebugRendererManager.update: No spine instance');
+      return;
+    }
+
+    console.log('DebugRendererManager.update: Updating layers with flags:', this.flags);
+
+    // Update each layer based on its flag
+    if (this.flags.showBones) {
+      console.log('DebugRendererManager: Updating bones layer');
+      this.layers.get('bones')?.update(this.currentSpine);
+    }
+
+    if (this.flags.showPathConstraints) {
+      this.layers.get('pathConstraints')?.update(this.currentSpine);
+    }
+
+    if (this.flags.showIkConstraints) {
+      this.layers.get('ikConstraints')?.update(this.currentSpine);
+    }
+
+    // TODO: Update other layers based on their flags
+    // if (this.flags.showMeshTriangles || this.flags.showMeshHull) {
+    //   this.layers.get('meshes')?.update(this.currentSpine);
+    // }
+    // etc...
+  }
+
+  public setDebugFlags(flags: Partial<DebugFlags>): void {
+    console.log('DebugRendererManager.setDebugFlags:', flags);
+    this.flags = { ...this.flags, ...flags };
+    // console.log('DebugRendererManager flags after update:', this.flags);
+
+    // Update layer visibility based on flags
+    this.layers.get('bones')?.setVisible(this.flags.showBones);
+    this.layers.get('pathConstraints')?.setVisible(this.flags.showPathConstraints);
+    this.layers.get('ikConstraints')?.setVisible(this.flags.showIkConstraints);
+    
+    // TODO: Update other layers
+    // this.layers.get('meshes')?.setVisible(this.flags.showMeshTriangles || this.flags.showMeshHull);
+    // etc...
+
+    // Force update if we have a spine
+    if (this.currentSpine) {
+      console.log('DebugRendererManager: Forcing update with spine');
+      this.update();
+    }
+  }
+
+  public getDebugFlags(): DebugFlags {
+    return { ...this.flags };
+  }
+
+  public clearAll(): void {
+    this.layers.forEach(layer => layer.clear());
+  }
+
+  public getLayer<T extends DebugLayer>(name: string): T | undefined {
+    return this.layers.get(name) as T | undefined;
+  }
+
+  public destroy(): void {
+    this.clearAll();
+    this.layers.forEach(layer => layer.destroy());
+    this.layers.clear();
+    this.container.destroy({ children: true });
+  }
+
+  // Convenience methods for toggling specific debug features
+  public togglePathConstraints(visible?: boolean): void {
+    const newValue = visible ?? !this.flags.showPathConstraints;
+    this.setDebugFlags({ showPathConstraints: newValue });
+  }
+
+  public toggleIkConstraints(visible?: boolean): void {
+    const newValue = visible ?? !this.flags.showIkConstraints;
+    this.setDebugFlags({ showIkConstraints: newValue });
+  }
+
+  public toggleMeshes(visible?: boolean): void {
+    const newValue = visible ?? !this.flags.showMeshTriangles;
+    this.setDebugFlags({
+      showMeshTriangles: newValue,
+      showMeshHull: newValue,
+      showRegionAttachments: newValue,
+      showBoundingBoxes: newValue,
+      showPaths: newValue,
+      showClipping: newValue,
+      showBones: newValue
+    });
+  }
+
+  public togglePhysics(visible?: boolean): void {
+    const newValue = visible ?? !this.flags.showPhysics;
+    this.setDebugFlags({
+      showPhysics: newValue,
+      showTransformConstraints: newValue,
+      showPathConstraints: newValue
+    });
+  }
+}
