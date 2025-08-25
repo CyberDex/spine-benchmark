@@ -8,6 +8,7 @@ import { InfoPanel } from './components/InfoPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { VersionDisplay } from './components/VersionDisplay';
 import { LanguageModal } from './components/LanguageModal';
+import { BenchmarkPanel } from './components/BenchmarkPanel';
 import { useToast } from './hooks/ToastContext';
 import { useSafeLocalStorage } from './hooks/useSafeLocalStorage';
 import { useSpineApp } from './hooks/useSpineApp';
@@ -418,6 +419,13 @@ const App: React.FC = () => {
             />;
           })()}
       </div>
+      
+      {/* Benchmark Panel - shows when analysis is complete and benchmark info is not visible */}
+      <BenchmarkPanel
+        benchmarkData={benchmarkData}
+        showBenchmark={showBenchmark}
+        setShowBenchmark={setShowBenchmarkWithHash}
+      />
       
       {showBenchmark && benchmarkData && (
         <InfoPanel
