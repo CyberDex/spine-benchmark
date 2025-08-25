@@ -1,9 +1,7 @@
 import { Container, Application } from 'pixi.js';
 import { Spine } from '@esotericsoftware/spine-pixi-v8';
 import { DebugLayer } from './DebugLayer';
-import { PathConstraintDebugLayer } from './layers/PathConstraintDebugLayer';
-import { IkConstraintDebugLayer } from './layers/IkConstraintDebugLayer';
-import { BoneDebugLayer } from './layers/BoneDebugLayer';
+import { DebugLayerFactory, DebugLayerType } from './DebugLayerFactory';
 
 export interface DebugFlags {
   showBones: boolean;
@@ -50,56 +48,21 @@ export class DebugRendererManager {
   }
 
   private initializeLayers(): void {
-    // Create bone layer (add this first as it's the base skeleton)
-    const boneLayer = new BoneDebugLayer({
-      app: this.app,
-      boneColor: 0xFFA,
-      jointColor: 0xFFF,
-      jointRadius: 3, // Make joints more visible
-      alpha: 1.0,
-      strokeWidth: 2, // Thicker lines for better visibility
-      showBones: true,
-      showJoints: true
-    });
+    // Define all supported layer types
+    const layerTypes: DebugLayerType[] = ['bones', 'pathConstraints', 'ikConstraints'];
     
-    this.layers.set('bones', boneLayer);
-    this.container.addChild(boneLayer.getContainer());
-
-    // Create path constraint layer
-    const pathLayer = new PathConstraintDebugLayer({
-      app: this.app,
-      pathColor: 0x00ff00,
-      alpha: 1.0,
-      strokeWidth: 1,
-      showPath: true,
-      showStartEnd: true,
-      showBoneConnections: true,
-      showTarget: true
+    // Create all layers using the factory
+    layerTypes.forEach(type => {
+      try {
+        const layer = DebugLayerFactory.createLayer(type, 
+          DebugLayerFactory.getDefaultOptions(type, this.app));
+        this.layers.set(type, layer);
+        this.container.addChild(layer.getContainer());
+        console.log(`DebugRendererManager: Created ${type} layer`);
+      } catch (error) {
+        console.warn(`DebugRendererManager: Failed to create ${type} layer:`, error);
+      }
     });
-    
-    this.layers.set('pathConstraints', pathLayer);
-    this.container.addChild(pathLayer.getContainer());
-
-    // Create IK constraint layer
-    const ikLayer = new IkConstraintDebugLayer({
-      app: this.app,
-      boneColor: 0x00ffff,
-      targetColor: 0x00ffff,
-      startCircleColor: 0x00ffff,
-      alpha: 1.0,
-      strokeWidth: 1,
-      showBoneChain: true,
-      showTarget: true,
-      showStartCircle: true
-    });
-    
-    this.layers.set('ikConstraints', ikLayer);
-    this.container.addChild(ikLayer.getContainer());
-
-    // TODO: Add other layers as we create them
-    // this.layers.set('meshes', new MeshDebugLayer({ app: this.app }));
-    // this.layers.set('physics', new PhysicsDebugLayer({ app: this.app }));
-    // etc...
   }
 
   public getContainer(): Container {
@@ -148,13 +111,23 @@ export class DebugRendererManager {
     // console.log('DebugRendererManager flags after update:', this.flags);
 
     // Update layer visibility based on flags
-    this.layers.get('bones')?.setVisible(this.flags.showBones);
-    this.layers.get('pathConstraints')?.setVisible(this.flags.showPathConstraints);
-    this.layers.get('ikConstraints')?.setVisible(this.flags.showIkConstraints);
-    
-    // TODO: Update other layers
-    // this.layers.get('meshes')?.setVisible(this.flags.showMeshTriangles || this.flags.showMeshHull);
-    // etc...
+    this.layers.forEach((layer, type) => {
+      // Map debug flags to layer visibility
+      let visible = false;
+      switch(type) {
+        case 'bones':
+          visible = this.flags.showBones;
+          break;
+        case 'pathConstraints':
+          visible = this.flags.showPathConstraints;
+          break;
+        case 'ikConstraints':
+          visible = this.flags.showIkConstraints;
+          break;
+        // TODO: Add cases for other layer types
+      }
+      layer.setVisible(visible);
+    });
 
     // Force update if we have a spine
     if (this.currentSpine) {

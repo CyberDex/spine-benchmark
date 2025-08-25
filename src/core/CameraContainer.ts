@@ -153,11 +153,17 @@ export class CameraContainer extends Container {
   }
 
   public toggleMeshes(visible?: boolean): void {
-    this.debugRenderer.toggleMeshes(visible);
+    const newValue = visible ?? !this.debugRenderer.getDebugFlags().showMeshTriangles;
+    this.debugRenderer.setDebugFlags({
+      showMeshTriangles: newValue,
+      showMeshHull: newValue,
+      showRegionAttachments: newValue
+    });
   }
 
   public togglePhysics(visible?: boolean): void {
-    this.debugRenderer.togglePhysics(visible);
+    const newValue = visible ?? !this.debugRenderer.getDebugFlags().showPhysics;
+    this.debugRenderer.setDebugFlags({ showPhysics: newValue });
   }
 
   public toggleIkConstraints(visible?: boolean): void {
