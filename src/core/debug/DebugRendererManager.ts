@@ -49,7 +49,14 @@ export class DebugRendererManager {
 
   private initializeLayers(): void {
     // Define all supported layer types
-    const layerTypes: DebugLayerType[] = ['bones', 'pathConstraints', 'ikConstraints'];
+    const layerTypes: DebugLayerType[] = [
+      'bones', 
+      'pathConstraints', 
+      'ikConstraints',
+      'meshes',
+      'transformConstraints',
+      'physics'
+    ];
     
     // Create all layers using the factory
     layerTypes.forEach(type => {
@@ -98,11 +105,20 @@ export class DebugRendererManager {
       this.layers.get('ikConstraints')?.update(this.currentSpine);
     }
 
-    // TODO: Update other layers based on their flags
-    // if (this.flags.showMeshTriangles || this.flags.showMeshHull) {
-    //   this.layers.get('meshes')?.update(this.currentSpine);
-    // }
-    // etc...
+    // Update mesh layers based on their flags
+    if (this.flags.showMeshTriangles || this.flags.showMeshHull || this.flags.showVertices) {
+      this.layers.get('meshes')?.update(this.currentSpine);
+    }
+    
+    // Update transform constraint layer
+    if (this.flags.showTransformConstraints) {
+      this.layers.get('transformConstraints')?.update(this.currentSpine);
+    }
+    
+    // Update physics constraint layer
+    if (this.flags.showPhysics) {
+      this.layers.get('physics')?.update(this.currentSpine);
+    }
   }
 
   public setDebugFlags(flags: Partial<DebugFlags>): void {
@@ -124,7 +140,15 @@ export class DebugRendererManager {
         case 'ikConstraints':
           visible = this.flags.showIkConstraints;
           break;
-        // TODO: Add cases for other layer types
+        case 'meshes':
+          visible = this.flags.showMeshTriangles || this.flags.showMeshHull || this.flags.showVertices;
+          break;
+        case 'transformConstraints':
+          visible = this.flags.showTransformConstraints;
+          break;
+        case 'physics':
+          visible = this.flags.showPhysics;
+          break;
       }
       layer.setVisible(visible);
     });
@@ -171,20 +195,25 @@ export class DebugRendererManager {
     this.setDebugFlags({
       showMeshTriangles: newValue,
       showMeshHull: newValue,
+      showVertices: newValue,
       showRegionAttachments: newValue,
       showBoundingBoxes: newValue,
       showPaths: newValue,
-      showClipping: newValue,
-      showBones: newValue
+      showClipping: newValue
     });
   }
 
   public togglePhysics(visible?: boolean): void {
     const newValue = visible ?? !this.flags.showPhysics;
     this.setDebugFlags({
-      showPhysics: newValue,
-      showTransformConstraints: newValue,
-      showPathConstraints: newValue
+      showPhysics: newValue
+    });
+  }
+
+  public toggleTransformConstraints(visible?: boolean): void {
+    const newValue = visible ?? !this.flags.showTransformConstraints;
+    this.setDebugFlags({
+      showTransformConstraints: newValue
     });
   }
 }

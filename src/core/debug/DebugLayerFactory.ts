@@ -3,6 +3,9 @@ import { DebugLayer } from './DebugLayer';
 import { PathConstraintDebugLayer } from './layers/PathConstraintDebugLayer';
 import { IkConstraintDebugLayer } from './layers/IkConstraintDebugLayer';
 import { BoneDebugLayer } from './layers/BoneDebugLayer';
+import { MeshDebugLayer } from './layers/MeshDebugLayer';
+import { TransformConstraintDebugLayer } from './layers/TransformConstraintDebugLayer';
+import { PhysicsConstraintDebugLayer } from './layers/PhysicsConstraintDebugLayer';
 
 /**
  * DebugLayerFactory - Factory for creating consistent debug layers
@@ -36,6 +39,7 @@ interface BoneLayerOptions extends BaseLayerOptions {
   jointRadius?: number;
   showBones?: boolean;
   showJoints?: boolean;
+  showHierarchy?: boolean;
 }
 
 interface PathConstraintLayerOptions extends BaseLayerOptions {
@@ -55,10 +59,53 @@ interface IkConstraintLayerOptions extends BaseLayerOptions {
   showStartCircle?: boolean;
 }
 
+interface MeshLayerOptions extends BaseLayerOptions {
+  triangleColor?: number;
+  hullColor?: number;
+  vertexColor?: number;
+  showTriangles?: boolean;
+  showHull?: boolean;
+  showVertices?: boolean;
+  triangleAlpha?: number;
+  hullAlpha?: number;
+  vertexAlpha?: number;
+  vertexRadius?: number;
+}
+
+interface TransformConstraintLayerOptions extends BaseLayerOptions {
+  constraintBoneColor?: number;
+  targetBoneColor?: number;
+  limitColor?: number;
+  showConstraints?: boolean;
+  showTargets?: boolean;
+  showLimits?: boolean;
+  constraintBoneAlpha?: number;
+  targetBoneAlpha?: number;
+  limitAlpha?: number;
+}
+
+interface PhysicsConstraintLayerOptions extends BaseLayerOptions {
+  boundsColor?: number;
+  gravityColor?: number;
+  windColor?: number;
+  motionColor?: number;
+  showBounds?: boolean;
+  showGravity?: boolean;
+  showWind?: boolean;
+  showMotion?: boolean;
+  boundsAlpha?: number;
+  gravityAlpha?: number;
+  windAlpha?: number;
+  motionAlpha?: number;
+}
+
 type LayerOptions = 
   BoneLayerOptions | 
   PathConstraintLayerOptions | 
   IkConstraintLayerOptions | 
+  MeshLayerOptions | 
+  TransformConstraintLayerOptions | 
+  PhysicsConstraintLayerOptions | 
   BaseLayerOptions;
 
 /**
@@ -111,10 +158,58 @@ export class DebugLayerFactory {
           showStartCircle: (options as IkConstraintLayerOptions).showStartCircle ?? true
         });
       
-      // TODO: Implement other layer types
       case 'meshes':
-      case 'physics':
+        return new MeshDebugLayer({
+          app: options.app,
+          triangleColor: (options as MeshLayerOptions).triangleColor ?? 0x00FF00,
+          hullColor: (options as MeshLayerOptions).hullColor ?? 0xFF00FF,
+          vertexColor: (options as MeshLayerOptions).vertexColor ?? 0xFFFF00,
+          alpha: options.alpha ?? 1.0,
+          strokeWidth: options.strokeWidth ?? 1,
+          showTriangles: (options as MeshLayerOptions).showTriangles ?? true,
+          showHull: (options as MeshLayerOptions).showHull ?? true,
+          showVertices: (options as MeshLayerOptions).showVertices ?? false,
+          triangleAlpha: (options as MeshLayerOptions).triangleAlpha ?? 0.3,
+          hullAlpha: (options as MeshLayerOptions).hullAlpha ?? 0.5,
+          vertexAlpha: (options as MeshLayerOptions).vertexAlpha ?? 0.6,
+          vertexRadius: (options as MeshLayerOptions).vertexRadius ?? 2
+        });
+      
       case 'transformConstraints':
+        return new TransformConstraintDebugLayer({
+          app: options.app,
+          constraintBoneColor: (options as TransformConstraintLayerOptions).constraintBoneColor ?? 0x00FFFF,
+          targetBoneColor: (options as TransformConstraintLayerOptions).targetBoneColor ?? 0xADD8E6,
+          limitColor: (options as TransformConstraintLayerOptions).limitColor ?? 0x00FFFF,
+          alpha: options.alpha ?? 1.0,
+          strokeWidth: options.strokeWidth ?? 1,
+          showConstraints: (options as TransformConstraintLayerOptions).showConstraints ?? true,
+          showTargets: (options as TransformConstraintLayerOptions).showTargets ?? true,
+          showLimits: (options as TransformConstraintLayerOptions).showLimits ?? false,
+          constraintBoneAlpha: (options as TransformConstraintLayerOptions).constraintBoneAlpha ?? 0.6,
+          targetBoneAlpha: (options as TransformConstraintLayerOptions).targetBoneAlpha ?? 0.7,
+          limitAlpha: (options as TransformConstraintLayerOptions).limitAlpha ?? 0.5
+        });
+      
+      case 'physics':
+        return new PhysicsConstraintDebugLayer({
+          app: options.app,
+          boundsColor: (options as PhysicsConstraintLayerOptions).boundsColor ?? 0x800080,
+          gravityColor: (options as PhysicsConstraintLayerOptions).gravityColor ?? 0x4B0082,
+          windColor: (options as PhysicsConstraintLayerOptions).windColor ?? 0x9370DB,
+          motionColor: (options as PhysicsConstraintLayerOptions).motionColor ?? 0x800080,
+          alpha: options.alpha ?? 1.0,
+          strokeWidth: options.strokeWidth ?? 1,
+          showBounds: (options as PhysicsConstraintLayerOptions).showBounds ?? true,
+          showGravity: (options as PhysicsConstraintLayerOptions).showGravity ?? true,
+          showWind: (options as PhysicsConstraintLayerOptions).showWind ?? true,
+          showMotion: (options as PhysicsConstraintLayerOptions).showMotion ?? true,
+          boundsAlpha: (options as PhysicsConstraintLayerOptions).boundsAlpha ?? 0.5,
+          gravityAlpha: (options as PhysicsConstraintLayerOptions).gravityAlpha ?? 0.7,
+          windAlpha: (options as PhysicsConstraintLayerOptions).windAlpha ?? 0.6,
+          motionAlpha: (options as PhysicsConstraintLayerOptions).motionAlpha ?? 0.6
+        });
+      
       case 'clipping':
       case 'blendModes':
       case 'boundingBoxes':
@@ -167,6 +262,58 @@ export class DebugLayerFactory {
           showBoneChain: true,
           showTarget: true,
           showStartCircle: true
+        };
+      
+      case 'meshes':
+        return {
+          app,
+          triangleColor: 0x00FF00,
+          hullColor: 0xFF00FF,
+          vertexColor: 0xFFFF00,
+          alpha: 0.6,
+          strokeWidth: 1,
+          showTriangles: true,
+          showHull: true,
+          showVertices: false,
+          triangleAlpha: 0.3,
+          hullAlpha: 0.5,
+          vertexAlpha: 0.6,
+          vertexRadius: 2
+        };
+      
+      case 'transformConstraints':
+        return {
+          app,
+          constraintBoneColor: 0x00FFFF,
+          targetBoneColor: 0xADD8E6,
+          limitColor: 0x00FFFF,
+          alpha: 1.0,
+          strokeWidth: 1,
+          showConstraints: true,
+          showTargets: true,
+          showLimits: false,
+          constraintBoneAlpha: 0.6,
+          targetBoneAlpha: 0.7,
+          limitAlpha: 0.5
+        };
+      
+      case 'physics':
+        return {
+          app,
+          boundsColor: 0x800080,
+          gravityColor: 0x4B0082,
+          windColor: 0x9370DB,
+          motionColor: 0x800080,
+          alpha: 1.0,
+          strokeWidth: 1,
+          showBounds: true,
+          showGravity: true,
+          showWind: true,
+          showMotion: true,
+          boundsAlpha: 0.5,
+          gravityAlpha: 0.7,
+          windAlpha: 0.6,
+          motionAlpha: 0.6
         };
       
       default:

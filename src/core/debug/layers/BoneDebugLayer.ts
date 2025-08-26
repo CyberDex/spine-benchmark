@@ -7,12 +7,13 @@ export interface BoneDebugOptions extends DebugLayerOptions {
   jointRadius?: number;
   showBones?: boolean;
   showJoints?: boolean;
+  showHierarchy?: boolean;  // New option for hierarchy visualization
 
   /** Position of rhombus center as fraction of bone length (default 0.1) */
   rhombusCenterPosition?: number;
-  /** Width of rhombus as fraction of bone length (default 0.15) */
+  /** Width of rhombus as fraction of bone length (default 0.12) */
   rhombusWidthScale?: number;
-  /** Height of rhombus as fraction of bone length (default 0.08) */
+  /** Height of rhombus as fraction of bone length (default 0.06) */
   rhombusHeightScale?: number;
   /** Minimum rhombus width in pixels (default 3) */
   rhombusMinWidth?: number;
@@ -22,7 +23,7 @@ export interface BoneDebugOptions extends DebugLayerOptions {
   rhombusMinHeight?: number;
   /** Maximum rhombus height in pixels (default 10) */
   rhombusMaxHeight?: number;
-  /** Radius of circles drawn at bone start/end (default 2) */
+  /** Radius of circles drawn at bone start/end (default 2.5) */
   boneEndCircleRadius?: number;
 }
 
@@ -32,6 +33,7 @@ export class BoneDebugLayer extends DebugLayer {
   private jointRadius: number;
   private showBones: boolean;
   private showJoints: boolean;
+  private showHierarchy: boolean;
 
   private rhombusCenterPosition: number;
   private rhombusWidthScale: number;
@@ -45,20 +47,21 @@ export class BoneDebugLayer extends DebugLayer {
   constructor(options: BoneDebugOptions) {
     super(options);
 
-    this.boneColor = options.boneColor ?? 0xffffff;
-    this.jointColor = options.jointColor ?? 0xffa500;
-    this.jointRadius = options.jointRadius ?? 2;
+    this.boneColor = options.boneColor ?? 0xFF8C00;  // Dark orange instead of white
+    this.jointColor = options.jointColor ?? 0xFFFFFF;  // Keep white but increase opacity
+    this.jointRadius = options.jointRadius ?? 3.5;  // Increase from 2 to 3.5
     this.showBones = options.showBones ?? true;
     this.showJoints = options.showJoints ?? true;
+    this.showHierarchy = options.showHierarchy ?? false;
 
     this.rhombusCenterPosition = options.rhombusCenterPosition ?? 0.1;
-    this.rhombusWidthScale = options.rhombusWidthScale ?? 0.15;
-    this.rhombusHeightScale = options.rhombusHeightScale ?? 0.08;
+    this.rhombusWidthScale = options.rhombusWidthScale ?? 0.12;  // Reduced from 0.15
+    this.rhombusHeightScale = options.rhombusHeightScale ?? 0.06;  // Reduced from 0.08
     this.rhombusMinWidth = options.rhombusMinWidth ?? 3;
     this.rhombusMaxWidth = options.rhombusMaxWidth ?? 20;
     this.rhombusMinHeight = options.rhombusMinHeight ?? 2;
     this.rhombusMaxHeight = options.rhombusMaxHeight ?? 10;
-    this.boneEndCircleRadius = options.boneEndCircleRadius ?? 2;
+    this.boneEndCircleRadius = options.boneEndCircleRadius ?? 2.5;  // Increase from 2 to 2.5
   }
 
   public update(spine: Spine): void {
@@ -85,23 +88,33 @@ export class BoneDebugLayer extends DebugLayer {
         
         // Check if bone has effectively zero length
         if (len < 1e-4) {
-          // Draw a small circle for zero-length bones
-          const zeroLengthRadius = this.jointRadius / 4;
+          // Draw a more distinct marker for zero-length bones
+          const zeroLengthRadius = this.jointRadius / 2;
           
           if (this.isCircleVisible(sx, sy, zeroLengthRadius)) {
-            // Fill circle with semi-transparent color
+            // Draw shadow
+            g.fill({ color: 0xCC6C00, alpha: 0.4 })
+              .circle(sx + 1, sy + 1, zeroLengthRadius)
+              .fill();
+            
+            // Draw main circle with outline
             g.fill({ color: this.boneColor, alpha: boneAlpha })
               .circle(sx, sy, zeroLengthRadius)
               .fill();
             
-            // Stroke circle with semi-transparent color
+            // Stroke circle
             if (this.strokeWidth > 0) {
-              g.stroke({ color: this.boneColor, width: 1, alpha: boneAlpha, pixelLine: true })
+              g.stroke({ 
+                color: 0x000000, 
+                width: 1, 
+                alpha: boneAlpha * 0.8, 
+                pixelLine: true 
+              })
                 .circle(sx, sy, zeroLengthRadius);
             }
             
             drawn++;
-          }
+          
           continue;
         }
 
@@ -187,39 +200,71 @@ export class BoneDebugLayer extends DebugLayer {
         
         if (!visible) continue;
 
-        // Draw circles at start and end
+        // Draw drop shadow first (offset slightly)
+        const shadowOffset = 1;
+        const shadowAlpha = 0.4;  // 40% opacity for shadow
+
+        // Draw shadow rhombus
+        g.fill({ color: 0xCC6C00, alpha: shadowAlpha })
+          .poly([
+            leftX + shadowOffset, leftY + shadowOffset,
+            topX + shadowOffset, topY + shadowOffset,
+            rightX + shadowOffset, rightY + shadowOffset,
+            bottomX + shadowOffset, bottomY + shadowOffset
+          ])
+          .fill();
+
+        // Draw circles at start and end with shadows
         if (this.boneEndCircleRadius > 0) {
-          // Circle at start
+          // Circle at start with shadow
           if (this.isCircleVisible(sx, sy, this.boneEndCircleRadius)) {
+            // Shadow
+            g.fill({ color: 0xCC6C00, alpha: shadowAlpha })
+              .circle(sx + shadowOffset, sy + shadowOffset, this.boneEndCircleRadius)
+              .fill();
+            
+            // Main circle
             g.fill({ color: this.boneColor, alpha: boneAlpha })
               .circle(sx, sy, this.boneEndCircleRadius)
               .fill();
             if (this.strokeWidth > 0) {
-              g.stroke({ color: this.boneColor, width: 1, alpha: boneAlpha, pixelLine: true })
+              g.stroke({ color: 0x000000, width: 1, alpha: boneAlpha * 0.8, pixelLine: true })
                 .circle(sx, sy, this.boneEndCircleRadius);
             }
           }
           
-          // Circle at end
+          // Circle at end with shadow
           if (this.isCircleVisible(tx, ty, this.boneEndCircleRadius)) {
+            // Shadow
+            g.fill({ color: 0xCC6C00, alpha: shadowAlpha })
+              .circle(tx + shadowOffset, ty + shadowOffset, this.boneEndCircleRadius)
+              .fill();
+            
+            // Main circle
             g.fill({ color: this.boneColor, alpha: boneAlpha })
               .circle(tx, ty, this.boneEndCircleRadius)
               .fill();
             if (this.strokeWidth > 0) {
-              g.stroke({ color: this.boneColor, width: 1, alpha: boneAlpha, pixelLine: true })
+              g.stroke({ color: 0x000000, width: 1, alpha: boneAlpha * 0.8, pixelLine: true })
                 .circle(tx, ty, this.boneEndCircleRadius);
             }
           }
         }
 
-        // Draw rhombus
+        // Draw main bone rhombus with outline
         g.fill({ color: this.boneColor, alpha: boneAlpha })
           .poly([leftX, leftY, topX, topY, rightX, rightY, bottomX, bottomY])
           .fill();
 
-        // Optional outline for rhombus
+        // Add outline for better visibility
         if (this.strokeWidth > 0) {
-          g.stroke({ color: this.boneColor, width: this.strokeWidth, alpha: boneAlpha, pixelLine: true, miterLimit: 1.5 })
+          g.stroke({ 
+            color: 0x000000, 
+            width: this.strokeWidth, 
+            alpha: boneAlpha * 0.8, 
+            pixelLine: true, 
+            miterLimit: 1.5 
+          })
             .moveTo(leftX, leftY).lineTo(topX, topY)
             .moveTo(topX, topY).lineTo(rightX, rightY)
             .moveTo(rightX, rightY).lineTo(bottomX, bottomY)
@@ -229,7 +274,28 @@ export class BoneDebugLayer extends DebugLayer {
         drawn++;
       }
 
-      console.log(`BoneDebugLayer: Drew ${drawn} bones`);
+      // After drawing the bone, visualize parent-child relationships for selected bones
+      if (bone.parent && this.showHierarchy) {
+        // Draw a subtle line connecting parent to child
+        const parentX = bone.parent.worldX;
+        const parentY = bone.parent.worldY;
+        
+        if (this.isSegmentVisible(parentX, parentY, sx, sy)) {
+          g.stroke({ 
+            color: 0xFFFFFF, 
+            width: 1, 
+            alpha: 0.3, 
+            pixelLine: true 
+          })
+            .moveTo(parentX, parentY)
+            .lineTo(sx, sy);
+        }
+      }
+
+      drawn++;
+    }
+
+    console.log(`BoneDebugLayer: Drew ${drawn} bones`);
     }
 
     // Draw joints as circles at each bone origin (also semi-transparent)
@@ -258,6 +324,7 @@ export class BoneDebugLayer extends DebugLayer {
   // Configuration methods
   public setShowBones(show: boolean): void { this.showBones = show; }
   public setShowJoints(show: boolean): void { this.showJoints = show; }
+  public setShowHierarchy(show: boolean): void { this.showHierarchy = show; }
   public setColors(colors: { bone?: number; joint?: number }): void {
     if (colors.bone !== undefined) this.boneColor = colors.bone;
     if (colors.joint !== undefined) this.jointColor = colors.joint;
