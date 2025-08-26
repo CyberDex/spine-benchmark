@@ -8,6 +8,7 @@ export interface DebugFlags {
   showRegionAttachments: boolean;
   showMeshTriangles: boolean;
   showMeshHull: boolean;
+  showVertices: boolean;
   showBoundingBoxes: boolean;
   showPaths: boolean;
   showClipping: boolean;
@@ -28,12 +29,13 @@ export class DebugRendererManager {
     this.app = app;
     this.container = new Container();
     
-    // Initialize default flags
+    // Initialize default flags - all debug visualizations disabled by default
     this.flags = {
-      showBones: true,
+      showBones: false,
       showRegionAttachments: false,
       showMeshTriangles: false,
       showMeshHull: false,
+      showVertices: false,
       showBoundingBoxes: false,
       showPaths: false,
       showClipping: false,

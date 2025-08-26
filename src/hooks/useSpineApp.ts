@@ -14,6 +14,7 @@ export interface DebugFlags {
   showRegionAttachments: boolean;
   showMeshTriangles: boolean;
   showMeshHull: boolean;
+  showVertices: boolean;
   showBoundingBoxes: boolean;
   showPaths: boolean;
   showClipping: boolean;
@@ -99,9 +100,10 @@ export function useSpineApp(app: Application | null) {
     // Reset all debug flags
     // Ensure debug visualization is turned off by default
     cameraContainerRef.current.setDebugFlags({
-      showBones: true,
+      showBones: false,
       showMeshTriangles: false,
       showMeshHull: false,
+      showVertices: false,
       showRegionAttachments: false,
       showBoundingBoxes: false,
       showPaths: false,

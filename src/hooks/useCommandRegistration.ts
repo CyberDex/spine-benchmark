@@ -124,9 +124,15 @@ export function useCommandRegistration({
         execute: () => {
           if (cameraContainer) {
             const flags = cameraContainer.getDebugFlags();
+            const newValue = !flags.showMeshTriangles;
             cameraContainer.setDebugFlags({ 
-              showMeshTriangles: !flags.showMeshTriangles,
-              showMeshHull: !flags.showMeshTriangles 
+              showMeshTriangles: newValue,
+              showMeshHull: newValue,
+              showVertices: newValue,
+              showRegionAttachments: newValue,
+              showBoundingBoxes: newValue,
+              showPaths: newValue,
+              showClipping: newValue
             });
           }
         }
