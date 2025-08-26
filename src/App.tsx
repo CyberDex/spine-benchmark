@@ -113,7 +113,8 @@ const App: React.FC = () => {
     ikVisible,
     toggleMeshes,
     togglePhysics,
-    toggleIk
+    toggleIk,
+    cameraContainer  // Add this
   } = useSpineApp(app);
 
   // Check for URL parameters on mount - Enhanced version
@@ -354,7 +355,8 @@ const App: React.FC = () => {
     ikVisible,
     toggleMeshes,
     togglePhysics,
-    toggleIk
+    toggleIk,
+    cameraContainer  // Add this
   });
 
   // Add this to register URL load command

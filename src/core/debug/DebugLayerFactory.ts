@@ -124,7 +124,7 @@ export class DebugLayerFactory {
       case 'bones':
         return new BoneDebugLayer({
           app: options.app,
-          boneColor: (options as BoneLayerOptions).boneColor ?? 0xFFA500,
+          boneColor: (options as BoneLayerOptions).boneColor ?? 0xFFFFFF,
           jointColor: (options as BoneLayerOptions).jointColor ?? 0xFFFFFF,
           jointRadius: (options as BoneLayerOptions).jointRadius ?? 3,
           alpha: options.alpha ?? 0.6,
@@ -230,7 +230,7 @@ export class DebugLayerFactory {
       case 'bones':
         return {
           app,
-          boneColor: 0xFFA500,
+          boneColor: 0xFFFFFF,
           jointColor: 0xFFFFFF,
           jointRadius: 3,
           alpha: 0.6,

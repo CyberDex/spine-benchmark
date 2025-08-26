@@ -147,6 +147,7 @@ export function useSpineApp(app: Application | null) {
     toggleIk,
     meshesVisible,
     physicsVisible,
-    ikVisible
+    ikVisible,
+    cameraContainer: cameraContainerRef.current  // Add this
   };
 }

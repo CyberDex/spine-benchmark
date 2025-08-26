@@ -7,23 +7,15 @@ export interface BoneDebugOptions extends DebugLayerOptions {
   jointRadius?: number;
   showBones?: boolean;
   showJoints?: boolean;
-  showHierarchy?: boolean;  // New option for hierarchy visualization
+  showHierarchy?: boolean;
 
-  /** Position of rhombus center as fraction of bone length (default 0.1) */
-  rhombusCenterPosition?: number;
-  /** Width of rhombus as fraction of bone length (default 0.12) */
-  rhombusWidthScale?: number;
-  /** Height of rhombus as fraction of bone length (default 0.06) */
-  rhombusHeightScale?: number;
-  /** Minimum rhombus width in pixels (default 3) */
-  rhombusMinWidth?: number;
-  /** Maximum rhombus width in pixels (default 20) */
-  rhombusMaxWidth?: number;
-  /** Minimum rhombus height in pixels (default 2) */
-  rhombusMinHeight?: number;
-  /** Maximum rhombus height in pixels (default 10) */
-  rhombusMaxHeight?: number;
-  /** Radius of circles drawn at bone start/end (default 2.5) */
+  /** Width of triangle base at bone start as fraction of bone length (default 0.25) */
+  triangleBaseScale?: number;
+  /** Minimum triangle base width in pixels (default 8) */
+  triangleMinBase?: number;
+  /** Maximum triangle base width in pixels (default 30) */
+  triangleMaxBase?: number;
+  /** Radius of circles drawn at bone start/end (default 3) */
   boneEndCircleRadius?: number;
 }
 
@@ -35,33 +27,25 @@ export class BoneDebugLayer extends DebugLayer {
   private showJoints: boolean;
   private showHierarchy: boolean;
 
-  private rhombusCenterPosition: number;
-  private rhombusWidthScale: number;
-  private rhombusHeightScale: number;
-  private rhombusMinWidth: number;
-  private rhombusMaxWidth: number;
-  private rhombusMinHeight: number;
-  private rhombusMaxHeight: number;
+  private triangleBaseScale: number;
+  private triangleMinBase: number;
+  private triangleMaxBase: number;
   private boneEndCircleRadius: number;
 
   constructor(options: BoneDebugOptions) {
     super(options);
 
-    this.boneColor = options.boneColor ?? 0xFF8C00;  // Dark orange instead of white
-    this.jointColor = options.jointColor ?? 0xFFFFFF;  // Keep white but increase opacity
-    this.jointRadius = options.jointRadius ?? 3.5;  // Increase from 2 to 3.5
+    this.boneColor = options.boneColor ?? 0xFFFFFF; // WHITE for bones
+    this.jointColor = options.jointColor ?? 0xFFFFFF; // White for joints
+    this.jointRadius = options.jointRadius ?? 3;
     this.showBones = options.showBones ?? true;
     this.showJoints = options.showJoints ?? true;
     this.showHierarchy = options.showHierarchy ?? false;
 
-    this.rhombusCenterPosition = options.rhombusCenterPosition ?? 0.1;
-    this.rhombusWidthScale = options.rhombusWidthScale ?? 0.12;  // Reduced from 0.15
-    this.rhombusHeightScale = options.rhombusHeightScale ?? 0.06;  // Reduced from 0.08
-    this.rhombusMinWidth = options.rhombusMinWidth ?? 3;
-    this.rhombusMaxWidth = options.rhombusMaxWidth ?? 20;
-    this.rhombusMinHeight = options.rhombusMinHeight ?? 2;
-    this.rhombusMaxHeight = options.rhombusMaxHeight ?? 10;
-    this.boneEndCircleRadius = options.boneEndCircleRadius ?? 2.5;  // Increase from 2 to 2.5
+    this.triangleBaseScale = options.triangleBaseScale ?? 0.25;
+    this.triangleMinBase = options.triangleMinBase ?? 8;
+    this.triangleMaxBase = options.triangleMaxBase ?? 30;
+    this.boneEndCircleRadius = options.boneEndCircleRadius ?? 3;
   }
 
   public update(spine: Spine): void {
@@ -74,85 +58,64 @@ export class BoneDebugLayer extends DebugLayer {
 
     const g = this.graphics;
 
-    // Draw bones with semi-transparent color (60% alpha)
+    // Draw bones FIRST (so joints appear on top)
     if (this.showBones) {
       let drawn = 0;
-      const boneAlpha = 0.6; // 60% transparency for bones
 
       for (const bone of bones) {
         const sx = bone.worldX;
         const sy = bone.worldY;
+
+        // Draw connection line to parent's end FIRST (so it appears under the bone)
+        // This won't execute for root bones since they have no parent
+        if (bone.parent) {
+          const parentData = bone.parent.data;
+          const parentLen = parentData?.length ?? 0;
+          
+          // Calculate parent's end position
+          const parentEndX = bone.parent.worldX + bone.parent.a * parentLen;
+          const parentEndY = bone.parent.worldY + bone.parent.c * parentLen;
+          
+          // Draw slim white line from this bone's start to parent's end
+          if (this.isSegmentVisible(sx, sy, parentEndX, parentEndY)) {
+            g.stroke({ 
+              color: 0xFFFFFF, // White
+              width: 1, // Slim line
+              alpha: this.alpha * 0.5, // Semi-transparent
+              pixelLine: true 
+            })
+              .moveTo(sx, sy)
+              .lineTo(parentEndX, parentEndY);
+          }
+        }
 
         // Compute ideal tip from bone length along local X axis transformed to world
         const len = bone.data?.length ?? 0;
         
         // Check if bone has effectively zero length
         if (len < 1e-4) {
-          // Draw a more distinct marker for zero-length bones
-          const zeroLengthRadius = this.jointRadius / 2;
-          
-          if (this.isCircleVisible(sx, sy, zeroLengthRadius)) {
-            // Draw shadow
-            g.fill({ color: 0xCC6C00, alpha: 0.4 })
-              .circle(sx + 1, sy + 1, zeroLengthRadius)
-              .fill();
+          // Draw only a circle for zero-length bones
+          if (this.isCircleVisible(sx, sy, this.boneEndCircleRadius)) {
+            g.stroke({ 
+              color: this.boneColor, 
+              width: this.strokeWidth, 
+              alpha: this.alpha, 
+              pixelLine: true 
+            })
+              .circle(sx, sy, this.boneEndCircleRadius);
             
-            // Draw main circle with outline
-            g.fill({ color: this.boneColor, alpha: boneAlpha })
-              .circle(sx, sy, zeroLengthRadius)
+            g.fill({ color: this.boneColor, alpha: this.alpha * 0.3 })
+              .circle(sx, sy, this.boneEndCircleRadius)
               .fill();
-            
-            // Stroke circle
-            if (this.strokeWidth > 0) {
-              g.stroke({ 
-                color: 0x000000, 
-                width: 1, 
-                alpha: boneAlpha * 0.8, 
-                pixelLine: true 
-              })
-                .circle(sx, sy, zeroLengthRadius);
-            }
             
             drawn++;
-          
+          }
           continue;
         }
 
         // For bones with length, compute the tip position
         let tx = sx + bone.a * len;
         let ty = sy + bone.c * len;
-
-        // If children exist, snap to the child whose origin projects farthest along the bone's forward axis
-        if (bone.children && bone.children.length > 0) {
-          let bestX = bone.children[0].worldX;
-          let bestY = bone.children[0].worldY;
-
-          if (bone.children.length > 1) {
-            const fdx = tx - sx;
-            const fdy = ty - sy;
-            let bestProj = -Infinity;
-
-            for (const ch of bone.children) {
-              const vx = ch.worldX - sx;
-              const vy = ch.worldY - sy;
-              const proj = vx * fdx + vy * fdy; // dot product along forward axis
-              if (proj > bestProj) {
-                bestProj = proj;
-                bestX = ch.worldX;
-                bestY = ch.worldY;
-              }
-            }
-          }
-
-          // Snap if close to ideal tip
-          const dx0 = bestX - tx;
-          const dy0 = bestY - ty;
-          const nearChild = dx0 * dx0 + dy0 * dy0 <= 4; // <= 2px squared
-          if (nearChild) {
-            tx = bestX;
-            ty = bestY;
-          }
-        }
 
         // Calculate bone direction
         const dx = tx - sx;
@@ -166,153 +129,73 @@ export class BoneDebugLayer extends DebugLayer {
         const nx = -uy; // Perpendicular unit normal
         const ny = ux;
 
-        // Calculate rhombus center position (10% along the bone by default)
-        const centerDist = mag * this.rhombusCenterPosition;
-        const cx = sx + ux * centerDist;
-        const cy = sy + uy * centerDist;
+        // Calculate triangle base width
+        const baseWidth = this.clamp(mag * this.triangleBaseScale, this.triangleMinBase, this.triangleMaxBase);
 
-        // Calculate rhombus dimensions
-        const rhombusWidth = this.clamp(mag * this.rhombusWidthScale, this.rhombusMinWidth, this.rhombusMaxWidth);
-        const rhombusHeight = this.clamp(mag * this.rhombusHeightScale, this.rhombusMinHeight, this.rhombusMaxHeight);
-
-        // Calculate rhombus points
-        // Point closest to start (left point)
-        const leftX = cx - ux * (rhombusWidth / 2);
-        const leftY = cy - uy * (rhombusWidth / 2);
+        // Calculate triangle points
+        // Base points perpendicular to bone at start
+        const base1X = sx + nx * (baseWidth / 2);
+        const base1Y = sy + ny * (baseWidth / 2);
+        const base2X = sx - nx * (baseWidth / 2);
+        const base2Y = sy - ny * (baseWidth / 2);
         
-        // Point closest to end (right point)
-        const rightX = cx + ux * (rhombusWidth / 2);
-        const rightY = cy + uy * (rhombusWidth / 2);
-        
-        // Top and bottom points (perpendicular to bone)
-        const topX = cx + nx * (rhombusHeight / 2);
-        const topY = cy + ny * (rhombusHeight / 2);
-        const bottomX = cx - nx * (rhombusHeight / 2);
-        const bottomY = cy - ny * (rhombusHeight / 2);
+        // Tip point EXACTLY at bone end
+        const tipX = tx;
+        const tipY = ty;
 
         // Visibility check
         const visible =
           this.isSegmentVisible(sx, sy, tx, ty) ||
-          this.isSegmentVisible(leftX, leftY, rightX, rightY) ||
-          this.isSegmentVisible(topX, topY, bottomX, bottomY) ||
-          this.isCircleVisible(sx, sy, this.boneEndCircleRadius) ||
-          this.isCircleVisible(tx, ty, this.boneEndCircleRadius);
+          this.isSegmentVisible(base1X, base1Y, tipX, tipY) ||
+          this.isSegmentVisible(base2X, base2Y, tipX, tipY) ||
+          this.isCircleVisible(sx, sy, this.boneEndCircleRadius);
         
         if (!visible) continue;
 
-        // Draw drop shadow first (offset slightly)
-        const shadowOffset = 1;
-        const shadowAlpha = 0.4;  // 40% opacity for shadow
+        // Draw bone triangle with white color
+        g.stroke({ 
+          color: this.boneColor, // White
+          width: this.strokeWidth, 
+          alpha: this.alpha * 0.8, 
+          pixelLine: true, 
+          miterLimit: 2 
+        })
+          .poly([base1X, base1Y, tipX, tipY, base2X, base2Y])
+          .closePath();
 
-        // Draw shadow rhombus
-        g.fill({ color: 0xCC6C00, alpha: shadowAlpha })
-          .poly([
-            leftX + shadowOffset, leftY + shadowOffset,
-            topX + shadowOffset, topY + shadowOffset,
-            rightX + shadowOffset, rightY + shadowOffset,
-            bottomX + shadowOffset, bottomY + shadowOffset
-          ])
+        g.fill({ color: this.boneColor, alpha: this.alpha * 0.2 }) // Light fill
+          .poly([base1X, base1Y, tipX, tipY, base2X, base2Y])
           .fill();
-
-        // Draw circles at start and end with shadows
-        if (this.boneEndCircleRadius > 0) {
-          // Circle at start with shadow
-          if (this.isCircleVisible(sx, sy, this.boneEndCircleRadius)) {
-            // Shadow
-            g.fill({ color: 0xCC6C00, alpha: shadowAlpha })
-              .circle(sx + shadowOffset, sy + shadowOffset, this.boneEndCircleRadius)
-              .fill();
-            
-            // Main circle
-            g.fill({ color: this.boneColor, alpha: boneAlpha })
-              .circle(sx, sy, this.boneEndCircleRadius)
-              .fill();
-            if (this.strokeWidth > 0) {
-              g.stroke({ color: 0x000000, width: 1, alpha: boneAlpha * 0.8, pixelLine: true })
-                .circle(sx, sy, this.boneEndCircleRadius);
-            }
-          }
-          
-          // Circle at end with shadow
-          if (this.isCircleVisible(tx, ty, this.boneEndCircleRadius)) {
-            // Shadow
-            g.fill({ color: 0xCC6C00, alpha: shadowAlpha })
-              .circle(tx + shadowOffset, ty + shadowOffset, this.boneEndCircleRadius)
-              .fill();
-            
-            // Main circle
-            g.fill({ color: this.boneColor, alpha: boneAlpha })
-              .circle(tx, ty, this.boneEndCircleRadius)
-              .fill();
-            if (this.strokeWidth > 0) {
-              g.stroke({ color: 0x000000, width: 1, alpha: boneAlpha * 0.8, pixelLine: true })
-                .circle(tx, ty, this.boneEndCircleRadius);
-            }
-          }
-        }
-
-        // Draw main bone rhombus with outline
-        g.fill({ color: this.boneColor, alpha: boneAlpha })
-          .poly([leftX, leftY, topX, topY, rightX, rightY, bottomX, bottomY])
-          .fill();
-
-        // Add outline for better visibility
-        if (this.strokeWidth > 0) {
-          g.stroke({ 
-            color: 0x000000, 
-            width: this.strokeWidth, 
-            alpha: boneAlpha * 0.8, 
-            pixelLine: true, 
-            miterLimit: 1.5 
-          })
-            .moveTo(leftX, leftY).lineTo(topX, topY)
-            .moveTo(topX, topY).lineTo(rightX, rightY)
-            .moveTo(rightX, rightY).lineTo(bottomX, bottomY)
-            .moveTo(bottomX, bottomY).lineTo(leftX, leftY);
-        }
 
         drawn++;
       }
 
-      // After drawing the bone, visualize parent-child relationships for selected bones
-      if (bone.parent && this.showHierarchy) {
-        // Draw a subtle line connecting parent to child
-        const parentX = bone.parent.worldX;
-        const parentY = bone.parent.worldY;
-        
-        if (this.isSegmentVisible(parentX, parentY, sx, sy)) {
-          g.stroke({ 
-            color: 0xFFFFFF, 
-            width: 1, 
-            alpha: 0.3, 
-            pixelLine: true 
-          })
-            .moveTo(parentX, parentY)
-            .lineTo(sx, sy);
-        }
-      }
-
-      drawn++;
+      console.log(`BoneDebugLayer: Drew ${drawn} bones`);
     }
 
-    console.log(`BoneDebugLayer: Drew ${drawn} bones`);
-    }
-
-    // Draw joints as circles at each bone origin (also semi-transparent)
+    // Draw joints AFTER bones (so they appear on top)
     if (this.showJoints) {
       g.stroke({ width: 1 });
       let drawnJoints = 0;
-      const jointAlpha = 0.6; // 60% transparency for joints
 
       for (const bone of bones) {
-        if(bone.data.length === 0) continue;
         const x = bone.worldX;
         const y = bone.worldY;
 
         if (this.isCircleVisible(x, y, this.jointRadius)) {
-          g.fill({ color: this.jointColor, alpha: jointAlpha })
+          // Draw joint circle with stronger presence
+          g.stroke({ 
+            color: this.jointColor, 
+            width: 2, // Thicker stroke
+            alpha: this.alpha, 
+            pixelLine: true 
+          })
+            .circle(x, y, this.jointRadius);
+          
+          g.fill({ color: this.jointColor, alpha: this.alpha * 0.6 }) // More opaque fill
             .circle(x, y, this.jointRadius)
             .fill();
+          
           drawnJoints++;
         }
       }
@@ -331,22 +214,14 @@ export class BoneDebugLayer extends DebugLayer {
   }
   public setJointRadius(radius: number): void { this.jointRadius = radius; }
   public setBoneEndCircleRadius(radius: number): void { this.boneEndCircleRadius = radius; }
-  public setRhombusParams(opts: { 
-    centerPosition?: number; 
-    widthScale?: number; 
-    heightScale?: number;
-    minWidth?: number;
-    maxWidth?: number;
-    minHeight?: number;
-    maxHeight?: number;
+  public setTriangleParams(opts: { 
+    baseScale?: number;
+    minBase?: number;
+    maxBase?: number;
   }): void {
-    if (opts.centerPosition !== undefined) this.rhombusCenterPosition = opts.centerPosition;
-    if (opts.widthScale !== undefined) this.rhombusWidthScale = opts.widthScale;
-    if (opts.heightScale !== undefined) this.rhombusHeightScale = opts.heightScale;
-    if (opts.minWidth !== undefined) this.rhombusMinWidth = opts.minWidth;
-    if (opts.maxWidth !== undefined) this.rhombusMaxWidth = opts.maxWidth;
-    if (opts.minHeight !== undefined) this.rhombusMinHeight = opts.minHeight;
-    if (opts.maxHeight !== undefined) this.rhombusMaxHeight = opts.maxHeight;
+    if (opts.baseScale !== undefined) this.triangleBaseScale = opts.baseScale;
+    if (opts.minBase !== undefined) this.triangleMinBase = opts.minBase;
+    if (opts.maxBase !== undefined) this.triangleMaxBase = opts.maxBase;
   }
 
   // Helpers

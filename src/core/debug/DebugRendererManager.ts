@@ -86,13 +86,6 @@ export class DebugRendererManager {
   }
 
   public update(): void {
-    if (!this.currentSpine) {
-      console.log('DebugRendererManager.update: No spine instance');
-      return;
-    }
-
-    console.log('DebugRendererManager.update: Updating layers with flags:', this.flags);
-
     // Update each layer based on its flag
     if (this.flags.showBones) {
       console.log('DebugRendererManager: Updating bones layer');
