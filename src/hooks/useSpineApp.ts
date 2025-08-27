@@ -16,12 +16,9 @@ export interface DebugFlags {
   showMeshHull: boolean;
   showVertices: boolean;
   showBoundingBoxes: boolean;
-  showPaths: boolean;
   showClipping: boolean;
-  showPhysics: boolean;
   showIkConstraints: boolean;
   showTransformConstraints: boolean;
-  showPathConstraints: boolean;
 }
 
 export function useSpineApp(app: Application | null) {
@@ -29,6 +26,7 @@ export function useSpineApp(app: Application | null) {
   const [benchmarkData, setBenchmarkData] = useState<SpineAnalysisResult | null>(null);
   
   const cameraContainerRef = useRef<CameraContainer | null>(null);
+  const previousSpineInstanceRef = useRef<Spine | null>(null);
   const { addToast } = useToast();
   
   // Use specialized hooks for different concerns
@@ -42,10 +40,8 @@ export function useSpineApp(app: Application | null) {
   
   const { 
     meshesVisible, 
-    physicsVisible, 
     ikVisible, 
     toggleMeshes, 
-    togglePhysics, 
     toggleIk
   } = useDebugVisualizer();
   
@@ -87,7 +83,25 @@ export function useSpineApp(app: Application | null) {
 
   // Effect to handle spine instance changes and update camera
   useEffect(() => {
-    if (!spineInstance || !cameraContainerRef.current) return;
+    // Clean up previous spine instance from camera container
+    if (previousSpineInstanceRef.current && cameraContainerRef.current) {
+      // Remove from camera container if it's still a child
+      if (previousSpineInstanceRef.current.parent === cameraContainerRef.current) {
+        cameraContainerRef.current.removeChild(previousSpineInstanceRef.current);
+      }
+    }
+
+    if (!spineInstance || !cameraContainerRef.current) {
+      // Clear benchmark data when no spine instance
+      if (!spineInstance) {
+        setBenchmarkData(null);
+      }
+      previousSpineInstanceRef.current = null;
+      return;
+    }
+    
+    // Store reference to current spine instance
+    previousSpineInstanceRef.current = spineInstance;
     
     // Add to camera container and look at it
     cameraContainerRef.current.addChild(spineInstance);
@@ -106,12 +120,9 @@ export function useSpineApp(app: Application | null) {
       showVertices: false,
       showRegionAttachments: false,
       showBoundingBoxes: false,
-      showPaths: false,
       showClipping: false,
-      showPhysics: false,
       showIkConstraints: false,
-      showTransformConstraints: false,
-      showPathConstraints: false
+      showTransformConstraints: false
     });
     
   }, [spineInstance]);
@@ -124,15 +135,12 @@ export function useSpineApp(app: Application | null) {
       showMeshTriangles: meshesVisible,
       showMeshHull: meshesVisible,
       showRegionAttachments: meshesVisible,
-      showPhysics: physicsVisible,
       showIkConstraints: ikVisible
     });
     
     // Force update debug graphics
     cameraContainerRef.current.forceResetDebugGraphics();
-  }, [meshesVisible, physicsVisible, ikVisible]);
-  
-
+  }, [meshesVisible, ikVisible]);
 
   return {
     spineInstance,
@@ -143,11 +151,9 @@ export function useSpineApp(app: Application | null) {
     setBackgroundImage,
     clearBackgroundImage,
     toggleMeshes,
-    togglePhysics,
     toggleIk,
     meshesVisible,
-    physicsVisible,
     ikVisible,
-    cameraContainer: cameraContainerRef.current  // Add this
+    cameraContainer: cameraContainerRef.current
   };
 }
