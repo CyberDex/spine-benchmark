@@ -131,6 +131,7 @@ export function useCommandRegistration({
               showVertices: newValue,
               showRegionAttachments: newValue,
               showBoundingBoxes: newValue,
+              showPaths: newValue,
               showClipping: newValue
             });
           }
@@ -163,6 +164,21 @@ export function useCommandRegistration({
           if (cameraContainer) {
             const flags = cameraContainer.getDebugFlags();
             cameraContainer.setDebugFlags({ showBoundingBoxes: !flags.showBoundingBoxes });
+          }
+        }
+      });
+
+      // Paths Debug
+      commandRegistry.register({
+        id: 'debug.toggle-paths',
+        title: t('commands.debug.togglePaths', 'Toggle Paths'),
+        category: 'debug',
+        description: t('commands.debug.togglePathsDescription', 'Show/hide path attachments'),
+        keywords: [t('commands.keywords.toggle'), 'paths', 'debug', 'curves'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showPaths: !flags.showPaths });
           }
         }
       });
@@ -212,6 +228,36 @@ export function useCommandRegistration({
         }
       });
 
+      // Path Constraints Debug
+      commandRegistry.register({
+        id: 'debug.toggle-path-constraints',
+        title: t('commands.debug.togglePathConstraints', 'Toggle Path Constraints'),
+        category: 'debug',
+        description: t('commands.debug.togglePathConstraintsDescription', 'Show/hide path constraints'),
+        keywords: [t('commands.keywords.toggle'), 'path', 'constraints', 'debug'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showPathConstraints: !flags.showPathConstraints });
+          }
+        }
+      });
+
+      // Physics Constraints Debug
+      commandRegistry.register({
+        id: 'debug.toggle-physics-constraints',
+        title: t('commands.debug.togglePhysicsConstraints', 'Toggle Physics Constraints'),
+        category: 'debug',
+        description: t('commands.debug.togglePhysicsConstraintsDescription', 'Show/hide physics constraints'),
+        keywords: [t('commands.keywords.toggle'), 'physics', 'constraints', 'debug', 'simulation'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showPhysics: !flags.showPhysics });
+          }
+        }
+      });
+
       // Convenience commands for common debug combinations
       commandRegistry.register({
         id: 'debug.show-all',
@@ -227,9 +273,12 @@ export function useCommandRegistration({
               showMeshTriangles: true,
               showMeshHull: true,
               showBoundingBoxes: true,
+              showPaths: true,
               showClipping: true,
+              showPhysics: true,
               showIkConstraints: true,
-              showTransformConstraints: true
+              showTransformConstraints: true,
+              showPathConstraints: true
             });
           }
         }
@@ -249,9 +298,12 @@ export function useCommandRegistration({
               showMeshTriangles: false,
               showMeshHull: false,
               showBoundingBoxes: false,
+              showPaths: false,
               showClipping: false,
+              showPhysics: false,
               showIkConstraints: false,
-              showTransformConstraints: false
+              showTransformConstraints: false,
+              showPathConstraints: false
             });
           }
         }
@@ -295,6 +347,26 @@ export function useCommandRegistration({
           description: t('commands.debug.hideIkDebugDescription'),
           keywords: ['hide', 'ik', 'debug', 'constraints', 'controls'],
           execute: toggleIk
+        });
+      }
+
+      if (!physicsVisible) {
+        commandRegistry.register({
+          id: 'debug.show-physics',
+          title: t('commands.debug.showPhysicsDebug'),
+          category: 'debug',
+          description: t('commands.debug.showPhysicsDebugDescription'),
+          keywords: [t('commands.keywords.show'), 'physics', 'debug', 'constraints', 'simulation'],
+          execute: togglePhysics
+        });
+      } else {
+        commandRegistry.register({
+          id: 'debug.hide-physics',
+          title: t('commands.debug.hidePhysicsDebug'),
+          category: 'debug',
+          description: t('commands.debug.hidePhysicsDebugDescription'),
+          keywords: ['hide', 'physics', 'debug', 'constraints', 'simulation'],
+          execute: togglePhysics
         });
       }
     }
@@ -362,15 +434,20 @@ export function useCommandRegistration({
         'debug.toggle-meshes',
         'debug.toggle-regions',
         'debug.toggle-bounding-boxes',
+        'debug.toggle-paths',
         'debug.toggle-clipping',
         'debug.toggle-ik-constraints',
         'debug.toggle-transform-constraints',
+        'debug.toggle-path-constraints',
+        'debug.toggle-physics-constraints',
         'debug.show-all',
         'debug.hide-all',
         'debug.show-mesh',
         'debug.hide-mesh',
         'debug.show-ik',
         'debug.hide-ik',
+        'debug.show-physics',
+        'debug.hide-physics',
         'performance.show-benchmark',
         'help.documentation',
         'language.change'
@@ -392,8 +469,10 @@ export function useCommandRegistration({
     openGitHubReadme,
     setShowLanguageModal,
     meshesVisible,
+    physicsVisible,
     ikVisible,
     toggleMeshes,
+    togglePhysics,
     toggleIk,
     cameraContainer,
     t

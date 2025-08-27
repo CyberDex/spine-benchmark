@@ -161,6 +161,11 @@ export class CameraContainer extends Container {
     });
   }
 
+  public togglePhysics(visible?: boolean): void {
+    const newValue = visible ?? !this.debugRenderer.getDebugFlags().showPhysics;
+    this.debugRenderer.setDebugFlags({ showPhysics: newValue });
+  }
+
   public toggleIkConstraints(visible?: boolean): void {
     this.debugRenderer.toggleIkConstraints(visible);
   }
