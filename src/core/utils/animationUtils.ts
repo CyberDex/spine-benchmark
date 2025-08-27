@@ -12,6 +12,7 @@ import {
   ClippingAttachment,
   Physics
 } from "@esotericsoftware/spine-pixi-v8";
+import { AnimationSampler } from "./animationSampler";
 
 export interface ActiveComponents {
   slots: Set<string>;
@@ -39,7 +40,6 @@ export function getActiveComponentsForAnimation(
   animation: Animation
 ): ActiveComponents {
   const skeleton = spineInstance.skeleton;
-  const state = spineInstance.state;
   
   const activeComponents: ActiveComponents = {
     slots: new Set<string>(),
@@ -59,56 +59,18 @@ export function getActiveComponentsForAnimation(
     }
   };
 
-  // Store current state
-  const currentAnimationTrack0 = state.getCurrent(0);
-  const currentTime = currentAnimationTrack0 ? currentAnimationTrack0.trackTime : 0;
-  
-  // Clear and set the animation we want to analyze
-  state.clearTrack(0);
-  state.setAnimation(0, animation.name, false);
-  
-  // Sample the animation at multiple points
-  const duration = animation.duration;
-  const sampleRate = 30; // Sample at 30fps
-  const samples = Math.max(1, Math.ceil(duration * sampleRate));
-  
-  console.log(`Sampling animation "${animation.name}" - duration: ${duration}s, samples: ${samples + 1}`);
-  
-  for (let i = 0; i <= samples; i++) {
-    const time = (i / samples) * duration;
-    
-    // Set track time and apply
-    const track = state.getCurrent(0);
-    if (track) {
-      track.trackTime = time;
-      track.animationLast = time;
-      track.animationEnd = duration;
+  // Sample the animation using the AnimationSampler utility
+  AnimationSampler.sampleAnimation(
+    spineInstance, 
+    animation, 
+    (time, sampledSkeleton) => {
+      // Analyze current frame
+      analyzeFrameState(sampledSkeleton, activeComponents);
     }
-    
-    // Apply the animation state
-    state.update(0);
-    state.apply(skeleton);
-    skeleton.updateWorldTransform(Physics.update);
-    
-    // Analyze current frame
-    analyzeFrameState(skeleton, activeComponents);
-  }
+  );
   
   // Also check which constraints are actually keyframed in this animation
   analyzeAnimationTimelines(animation, skeleton, activeComponents);
-  
-  // Restore original animation state
-  state.clearTrack(0);
-  if (currentAnimationTrack0 && currentAnimationTrack0.animation) {
-    state.setAnimation(0, currentAnimationTrack0.animation.name, currentAnimationTrack0.loop);
-    const restoredTrack = state.getCurrent(0);
-    if (restoredTrack) {
-      restoredTrack.trackTime = currentTime;
-      restoredTrack.animationLast = currentTime;
-      state.update(0);
-      state.apply(skeleton);
-    }
-  }
   
   console.log(`Completed analysis of "${animation.name}": found ${activeComponents.slots.size} active slots, ${activeComponents.meshes.size} meshes`);
   

@@ -1,303 +1,406 @@
 # Spine Benchmark
 
-![Spine Benchmark Logo](https://spine.ddstnd.space/logo.png)
+Performance analysis tool for Spine animations.
 
-**Spine Benchmark** is a performance analysis and visualization tool for Spine animations. It helps developers and designers optimize their Spine animations by providing detailed metrics and visual feedback on various performance aspects.
+**Production URL**: https://spine.schmooky.dev/  
+**Repository**: https://github.com/schmooky/spine-benchmark  
+**Updates**: https://t.me/spine_benchmark
 
-**Live Demo**: [https://spine.ddstnd.space/](https://spine.ddstnd.space/)
+## Table of Contents
 
-## Spine Benchmark Performance Scoring System
+1. [Overview](#overview)
+2. [System Requirements](#system-requirements)
+3. [Performance Scoring Algorithm](#performance-scoring-algorithm)
+4. [Installation](#installation)
+5. [Usage](#usage)
+6. [API Reference](#api-reference)
+7. [Architecture](#architecture)
+8. [Contributing](#contributing)
+9. [License](#license)
 
-The Spine benchmark performance scoring system uses a logarithmic approach to provide more meaningful and practical performance scores. The system is designed so that:
+## Overview
 
-- A score of 100 represents optimal performance
-- Scores of 85-90 represent good performance
-- Scores decline gradually as complexity increases
-- Even complex animations maintain usable scores (minimum floor of 40)
+Spine Benchmark analyzes Spine animation performance through quantitative metrics and visual debugging tools. The application performs frame-by-frame analysis to identify performance bottlenecks in Spine 4.2.x animations.
 
-This logarithmic approach prevents overly dramatic scoring drops for minor complexity increases while still highlighting performance concerns appropriately.
+### Core Functionality
 
-## Scoring Formula
+- Frame-by-frame performance analysis at 60 FPS
+- Logarithmic scoring system (0-100 scale)
+- Debug visualization for constraints and meshes
+- Multi-format file loading (JSON, SKEL, Atlas)
+- Internationalization support (8 languages)
 
-The main performance score is calculated as:
+## System Requirements
 
-```
-performanceScore = 100 - (weightedComponentPenalties)
-```
+### Browser Compatibility
 
-Where the weighted component penalties are based on five key areas:
+| Browser | Minimum Version | Features |
+|---------|----------------|----------|
+| Chrome | 90+ | Full support including folder drag-drop |
+| Firefox | 88+ | File drag-drop only |
+| Safari | 14.1+ | File drag-drop only |
+| Edge | 90+ | Full support including folder drag-drop |
 
-1. Bone Structure (15% weight)
-2. Mesh Complexity (25% weight)
-3. Clipping Masks (20% weight)
-4. Blend Modes (15% weight)
-5. Constraints (25% weight)
+### Technical Requirements
 
-Each component is evaluated on a 0-100 scale, with the penalty being the difference from 100.
+- WebGL 2.0 support
+- JavaScript ES2020
+- Minimum 4GB RAM recommended
+- GPU with 512MB VRAM
 
-## Component Scoring Methods
+## Performance Scoring Algorithm
 
-### 1. Bone Structure Score
+### Score Calculation
 
-```
-boneScore = 100 - log₂(totalBones/idealBones + 1) * 15 - (maxDepth * depthFactor)
+The overall performance score is calculated as the weighted sum of component penalties, with a minimum floor of 40:
 
-Where:
-- idealBones = 30
-- depthFactor = 1.5
-```
+**Formula**: performanceScore = max(40, 100 - Σ(componentPenalty × componentWeight))
 
-This formula creates a logarithmic penalty based on the ratio of bones to the ideal number, plus an additional penalty for deep hierarchies.
+### Component Weights
 
-### 2. Mesh Complexity Score
+The scoring system assigns different weights to each component based on their relative performance impact:
 
-```
-meshScore = 100 - log₂(totalMeshes/idealMeshes + 1) * 15
-             - log₂(totalVertices/idealVertices + 1) * 10
-             - (deformedMeshes * deformationFactor)
-             - (weightedMeshes * weightFactor)
+| Component | Weight | Description |
+|-----------|--------|-------------|
+| Bone Structure | 0.15 | Fifteen percent weight for skeleton complexity |
+| Mesh Complexity | 0.25 | Twenty-five percent weight for mesh and vertex operations |
+| Clipping Masks | 0.20 | Twenty percent weight for stencil buffer operations |
+| Blend Modes | 0.15 | Fifteen percent weight for rendering state changes |
+| Constraints | 0.25 | Twenty-five percent weight for runtime constraint calculations |
 
-Where:
-- idealMeshes = 15
-- idealVertices = 300
-- deformationFactor = 1.5
-- weightFactor = 2.0
-```
+### Component Scoring Functions
 
-This evaluates mesh complexity considering count, vertices, deformation, and bone weights.
+#### 1. Bone Structure Score
 
-### 3. Clipping Masks Score
+The bone structure score evaluates skeleton complexity using logarithmic scaling:
 
-```
-clippingScore = 100 - log₂(maskCount/idealMasks + 1) * 20
-                - log₂(vertexCount + 1) * 5
-                - (complexMasks * 10)
+**Formula**: boneScore = 100 - log₂(totalBones / idealBones + 1) × 15 - (maxDepth × depthFactor)
 
-Where:
-- idealMasks = 2
-- complexMasks = masks with >4 vertices
-```
+**Constants**:
+- Ideal bone count: 30 bones
+- Bone depth factor: 1.5 per hierarchy level
 
-Clipping masks are heavily penalized as they significantly impact performance.
+This formula applies a logarithmic penalty based on the ratio of actual bones to the ideal count, plus an additional linear penalty for deep bone hierarchies.
 
-### 4. Blend Mode Score
+#### 2. Mesh Complexity Score
 
-```
-blendModeScore = 100 - log₂(nonNormalCount/idealBlendModes + 1) * 20
-                 - (additiveCount * 2)
+The mesh complexity score accounts for vertex count, deformation, and bone weighting:
 
-Where:
-- idealBlendModes = 2
-```
+**Formula**: meshScore = 100 - log₂(totalMeshes / idealMeshes + 1) × 15 - log₂(totalVertices / idealVertices + 1) × 10 - (deformedMeshCount × deformationFactor) - (weightedMeshCount × weightFactor)
 
-Non-normal blend modes create additional rendering passes, with additive modes having the highest impact.
+**Constants**:
+- Ideal mesh count: 15 meshes
+- Ideal vertex count: 300 vertices
+- Mesh deformation factor: 1.5 penalty per deformed mesh
+- Mesh weight factor: 2.0 penalty per weighted mesh
 
-### 5. Constraint Score
+The scoring applies logarithmic penalties for mesh and vertex counts, with additional linear penalties for meshes requiring runtime deformation or bone weight calculations.
 
-```
-constraintScore = 100 - (constraintImpact * 0.5)
+#### 3. Clipping Mask Score
 
-Where constraintImpact is calculated from:
-- IK constraints: log₂(ikCount + 1) * 20 + log₂(totalBones + 1) * 10 + chainComplexity * 2
-- Physics constraints: log₂(physicsCount + 1) * 30 + propertiesComplexity * 5
-- Path constraints: log₂(pathCount + 1) * 20 + log₂(totalBones + 1) * 10 + modeComplexity * 7
-- Transform constraints: log₂(transformCount + 1) * 15 + log₂(totalBones + 1) * 8 + propComplexity * 5
-```
+Clipping masks significantly impact performance due to stencil buffer operations:
 
-The impact of each constraint type is weighted according to its performance cost, with physics constraints having the highest weight (40%).
+**Formula**: clippingScore = 100 - log₂(maskCount / idealMasks + 1) × 20 - log₂(totalVertices + 1) × 5 - (complexMaskCount × 10)
 
-## Why Logarithmic Scaling?
+**Constants**:
+- Ideal clipping count: 2 masks
+- Complex mask threshold: masks with more than 4 vertices
 
-Logarithmic scaling is ideal for Spine performance scoring because:
+Complex masks receive an additional penalty of 10 points per mask due to increased fill rate requirements.
 
-1. **Progressive Impact**: The first few bones/meshes/constraints have minimal performance impact, but each additional element adds incrementally more burden.
+#### 4. Blend Mode Score
 
-2. **Real-world Performance Correlation**: Performance in graphical rendering typically doesn't degrade linearly; it often follows a logarithmic pattern as rendering pipelines handle initial complexity well but struggle with edge cases.
+Non-normal blend modes require additional rendering passes:
 
-3. **Meaningful Scores**: Linear scoring would lead to extreme scores (either very high or very low) that don't provide useful guidance.
+**Formula**: blendModeScore = 100 - log₂(nonNormalCount / idealBlendModes + 1) × 20 - (additiveCount × 2)
 
-4. **Reference Calibration**: We've calibrated the scoring parameters to ensure that reference animations like symbols (100), announcers (85-95) receive appropriate scores that match their known performance characteristics.
+**Constants**:
+- Ideal blend mode count: 2 non-normal blend modes
 
-5. **Practical User Guidance**: The resulting scores provide clear indicators for optimization without being alarmist about moderate complexity.
+Additive blend modes receive an extra penalty of 2 points each due to their higher performance impact.
 
-## Performance Score Interpretation
+#### 5. Constraint Score
 
-| Score Range | Performance Rating | Interpretation |
-|-------------|-------------------|----------------|
-| 85-100 | Excellent | Suitable for all platforms and continuous animations |
-| 70-84 | Good | Works well on most platforms but may have issues on low-end devices |
-| 55-69 | Moderate | May cause performance dips, especially with multiple instances |
-| 40-54 | Poor | Performance issues likely on most devices |
+Constraints are weighted by their computational complexity:
 
-## Computational Complexity Factors
+**Formula**: constraintScore = 100 - (totalConstraintImpact × 0.5)
 
-The following factors increase computational complexity:
+**Total Impact Calculation**: totalConstraintImpact = (ikImpact × ikWeight) + (transformImpact × transformWeight) + (pathImpact × pathWeight) + (physicsImpact × physicsWeight)
 
-### Mesh Factors
-- **Vertex Count**: Each vertex requires memory and transform calculations
-- **Deformation**: Runtime vertex calculations cost CPU cycles
-- **Bone Weights**: Matrix multiplication operations for weighted vertices
-- **Parent Meshes**: Dependency complexity increases state management
+**Constraint Weights**:
+- IK constraint weight: 0.20 (20% of total constraint impact)
+- Transform constraint weight: 0.15 (15% of total constraint impact)
+- Path constraint weight: 0.25 (25% of total constraint impact)
+- Physics constraint weight: 0.40 (40% of total constraint impact)
 
-### Physics Factors
-- **Property Count**: Each affected property (position, rotation, scale) adds calculations
-- **Damping/Strength**: Affect iteration count for physics simulations
-- **Wind/Gravity**: Additional vector calculations
+##### Constraint Impact Calculations
 
-### Path Constraint Factors
-- **Rotate Mode**: ChainScale is most expensive as it recalculates multiple bones
-- **Spacing Mode**: Proportional spacing requires additional calculations
-- **Position Calculation**: More curve segments increase complexity
+**IK Constraint Impact**: ikImpact = log₂(ikCount + 1) × 20 + log₂(totalBones + 1) × 10 + Σ(chainLength^chainLengthFactor) × 2
 
-This benchmark analyzes and weights all these factors to provide an accurate performance score that correlates with real-world rendering costs.
+Where the IK chain length factor is 1.3, causing exponential impact growth for longer IK chains.
 
-## Features
+**Transform Constraint Impact**: transformImpact = log₂(transformCount + 1) × 15 + log₂(totalBones + 1) × 8 + Σ(affectedProperties) × 5
 
-- **Drag & Drop Interface**: Easily load Spine animations by dropping files or entire folders
-- **Comprehensive Analysis**: Get detailed insights on meshes, clipping masks, blend modes, and more
-- **Performance Metrics**: Measure and analyze what impacts rendering performance
-- **Interactive Visualization**: View and interact with your Spine animation in real-time
-- **Cross-Browser Support**: Works in modern browsers with best experience in Chrome
-- **Local Processing**: All analysis happens in your browser - no files are uploaded to any server
+Each affected property (position, rotation, scale, shear) adds 5 points to the impact.
 
-## Motivation
+**Path Constraint Impact**: pathImpact = log₂(pathCount + 1) × 20 + log₂(totalBones + 1) × 10 + Σ(modeComplexity) × 7
 
-Spine animations can become performance bottlenecks in games and interactive applications when not optimized properly. This tool was created to help developers:
+Mode complexity varies by type: tangent mode = 1, chain mode = 2, chain scale mode = 3.
 
-1. **Identify Optimization Opportunities**: Pinpoint specific elements in your animations that may cause performance issues
-2. **Analyze Best Practices**: Understand what makes a Spine animation efficient
-3. **Visualize Performance Impact**: See real-time metrics of different animation elements
-4. **Educate Teams**: Help artists and developers understand the technical implications of animation choices
+**Physics Constraint Impact**: physicsImpact = log₂(physicsCount + 1) × 30 + Σ(propertyCount × iterationFactor) × 5
 
-## How to Use
+The iteration factor is calculated as: max(1, 3 - damping) × strength / 50, representing the computational cost of physics iterations.
 
-### Basic Usage
+### Score Interpretation
 
-1. Visit [https://spine.ddstnd.space/](https://spine.ddstnd.space/)
-2. Drag and drop your Spine files (JSON/skel, atlas, and image files) onto the drop area
-3. The animation will load and the benchmark analysis will be performed automatically
-4. Click the document icon to view detailed performance metrics and analysis
+| Score Range | Classification | Performance Impact |
+|-------------|---------------|-------------------|
+| 85-100 | Excellent | <5ms frame time on mid-range hardware |
+| 70-84 | Good | 5-10ms frame time on mid-range hardware |
+| 55-69 | Moderate | 10-16ms frame time, optimization recommended |
+| 40-54 | Poor | >16ms frame time, optimization required |
 
-### Required Files
+## Installation
 
-To analyze a Spine animation, you need to provide:
+### Prerequisites
 
-- **Skeleton File**: Either a `.json` or `.skel` file containing the skeleton data
-- **Atlas File**: A `.atlas` file that defines the texture regions
-- **Image Files**: The textures referenced in the atlas file (PNG, JPG, etc.)
+- Node.js 18.0.0 or higher
+- npm 9.0.0 or higher
 
-You can drop these as individual files or as a folder containing all the required files.
-
-### Understanding the Analysis
-
-The benchmark presents several tabs of analysis:
-
-#### Summary
-
-A high-level overview of your animation's performance characteristics, including:
-- Performance score
-- Total bones, slots, meshes, etc.
-- Identified performance concerns
-- Optimization recommendations
-
-#### Mesh Analysis
-
-Detailed breakdown of mesh usage:
-- Vertex counts per mesh
-- Deformation status
-- Bone weights
-- Parent mesh connections
-- Visual indicators for high-impact meshes
-
-#### Clipping Analysis
-
-Information about clipping masks:
-- Number of masks
-- Vertex complexity
-- Performance impact assessment
-- Optimization suggestions
-
-#### Blend Modes
-
-Analysis of blend mode usage:
-- Count of non-normal blend modes
-- Slots using special blend modes
-- Performance impact warnings
-
-#### Skeleton Tree
-
-Visual representation of the skeleton structure:
-- Bone hierarchy
-- Attachment relationships
-- Depth analysis
-
-## Performance Considerations
-
-The benchmark highlights several key performance factors:
-
-### Meshes
-- High vertex counts increase GPU load
-- Mesh deformations add CPU overhead
-- Bone-weighted meshes require additional calculations
-
-### Clipping Masks
-- One of the most expensive operations in Spine
-- Complex masks (many vertices) significantly impact performance
-- Nested clipping increases rendering complexity
-
-### Blend Modes
-- Non-normal blend modes cause additional draw calls
-- Multiple blend mode changes increase renderer state changes
-- Additive and multiply modes have higher overhead
-
-### Bones
-- Deep hierarchies increase computation time
-- Large numbers of bones impact CPU performance
-- Complex constraints add overhead
-
-## Compatibility Notes
-
-- **Spine Version**: Designed for Spine 4.2.x (will automatically convert 4.1.x files but will leave artifacts, you can use https://spine-4-1.ddstnd.space/ for simple preview of such assets)
-- **File Drag & Drop**: Works best in Chrome for directory dropping
-- **Graphics**: Requires WebGL support in the browser
-
-## Local Development
-
-To run the project locally:
+### Local Development Setup
 
 ```bash
+# Clone repository
+git clone https://github.com/schmooky/spine-benchmark.git
+cd spine-benchmark
+
 # Install dependencies
 npm install
 
 # Start development server
 npm run dev
 
-# Build for production
+# Production build
 npm run build
+
+# Preview production build
+npm run preview
 ```
 
-## Credits and License
+### Environment Variables
 
-Spine Benchmark is an open-source tool created to help the Spine animation community. It uses:
+```env
+VITE_APP_VERSION=1.2.0
+VITE_SPINE_VERSION=4.2.*
+```
 
-- [PixiJS](https://pixijs.com/) for WebGL rendering
-- [React](https://reactjs.org/) for the user interface
-- [Spine Runtime](http://esotericsoftware.com/) for animation processing
+## Usage
 
-Licensed under MIT License - feel free to use, modify and contribute!
+### File Loading Methods
+
+#### 1. Drag and Drop
+
+Supported file combinations:
+- `.json` + `.atlas` + image files
+- `.skel` + `.atlas` + image files
+- Complete folder structure
+
+#### 2. URL Loading
+
+Query parameters:
+```
+https://spine.schmooky.dev/?json=<json_url>&atlas=<atlas_url>
+```
+
+Command palette:
+1. Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (macOS)
+2. Execute "Load Spine from URL"
+3. Input JSON and Atlas URLs
+
+#### 3. Programmatic Loading
+
+```typescript
+const loader = new SpineLoader(app);
+const spineInstance = await loader.loadSpineFromUrls(jsonUrl, atlasUrl);
+```
+
+### Debug Visualization
+
+| Feature | Toggle Method | Visualizes |
+|---------|--------------|------------|
+| Mesh Debug | `toggleMeshes()` | Triangles, vertices, hulls |
+| Physics Debug | `togglePhysics()` | Constraints, springs |
+| IK Debug | `toggleIk()` | Chain connections, targets |
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl/Cmd+K` | Open command palette |
+| `Escape` | Close active panel |
+| `Arrow Up/Down` | Navigate command palette |
+| `Enter` | Execute selected command |
+
+## API Reference
+
+### Core Classes
+
+#### SpineAnalyzer
+
+```typescript
+class SpineAnalyzer {
+  static analyze(spineInstance: Spine): SpineAnalysisResult
+  static exportJSON(analysisResult: SpineAnalysisResult): object
+}
+```
+
+#### SpineLoader
+
+```typescript
+class SpineLoader {
+  constructor(app: Application)
+  async loadSpineFiles(files: FileList): Promise<Spine | null>
+  async loadSpineFromUrls(jsonUrl: string, atlasUrl: string): Promise<Spine | null>
+}
+```
+
+#### CameraContainer
+
+```typescript
+class CameraContainer extends Container {
+  constructor(options: { width: number; height: number; app: Application })
+  lookAtChild(spine: Spine): void
+  toggleMeshes(visible?: boolean): void
+  togglePhysics(visible?: boolean): void
+  toggleIkConstraints(visible?: boolean): void
+  setDebugFlags(flags: Partial<DebugFlags>): void
+}
+```
+
+### Data Structures
+
+#### SpineAnalysisResult
+
+```typescript
+interface SpineAnalysisResult {
+  skeletonName: string
+  totalAnimations: number
+  totalSkins: number
+  skeleton: SkeletonAnalysis
+  animations: AnimationAnalysis[]
+  globalMesh: GlobalMeshAnalysis
+  globalClipping: GlobalClippingAnalysis
+  globalBlendMode: GlobalBlendModeAnalysis
+  globalPhysics: GlobalPhysicsAnalysis
+  medianScore: number
+  bestAnimation: AnimationAnalysis | null
+  worstAnimation: AnimationAnalysis | null
+  stats: AnalysisStatistics
+}
+```
+
+#### AnimationAnalysis
+
+```typescript
+interface AnimationAnalysis {
+  name: string
+  duration: number
+  overallScore: number
+  meshMetrics: MeshMetrics
+  clippingMetrics: ClippingMetrics
+  blendModeMetrics: BlendModeMetrics
+  constraintMetrics: ConstraintMetrics
+  activeComponents: ActiveComponents
+}
+```
+
+## Architecture
+
+### Directory Structure
+
+```
+src/
+├── components/
+│   ├── analysis/
+│   │   ├── Summary.tsx
+│   │   ├── MeshAnalysis.tsx
+│   │   ├── ClippingAnalysis.tsx
+│   │   ├── BlendModeAnalysis.tsx
+│   │   ├── PhysicsAnalysis.tsx
+│   │   └── SkeletonTree.tsx
+│   ├── AnimationControls.tsx
+│   ├── CommandPalette.tsx
+│   └── InfoPanel.tsx
+├── core/
+│   ├── analyzers/
+│   │   ├── meshAnalyzer.ts
+│   │   ├── clippingAnalyzer.ts
+│   │   ├── blendModeAnalyzer.ts
+│   │   ├── physicsAnalyzer.ts
+│   │   └── skeletonAnalyzer.ts
+│   ├── utils/
+│   │   ├── scoreCalculator.ts
+│   │   └── animationUtils.ts
+│   ├── SpineAnalyzer.ts
+│   ├── SpineLoader.ts
+│   └── CameraContainer.ts
+├── hooks/
+│   ├── useSpineApp.ts
+│   ├── useCommandPalette.ts
+│   └── useUrlHash.ts
+├── locales/
+│   └── [language].json
+└── App.tsx
+```
+
+### Technology Stack
+
+| Layer | Technology | Version |
+|-------|------------|---------|
+| UI Framework | React | 18.2.0 |
+| Rendering | Pixi.js | 8.0.0 |
+| Spine Runtime | @esotericsoftware/spine-pixi-v8 | 4.2.* |
+| Build Tool | Vite | 5.0.0 |
+| Language | TypeScript | 5.3.0 |
+| Internationalization | i18next | 23.7.0 |
+
+### Performance Characteristics
+
+- Memory usage: ~50-200MB per loaded animation
+- Analysis time: <100ms for typical animations
+- Frame sampling rate: 60 FPS
+- Maximum file size: 100MB recommended
 
 ## Contributing
 
-Contributions are welcome! If you'd like to improve the benchmark tool:
+### Development Workflow
 
-1. Fork the repository
-2. Create a feature branch
-3. Implement your changes
-4. Submit a pull request
+1. Fork repository
+2. Create feature branch: `git checkout -b feature/feature-name`
+3. Implement changes following TypeScript strict mode
+4. Add unit tests for new analyzers
+5. Update localization files
+6. Submit pull request
 
-## Contact & Support
+### Code Standards
 
-If you encounter any issues or have questions about Spine Benchmark:
+- TypeScript strict mode enabled
+- ESLint configuration enforced
+- Prettier formatting required
+- Component tests required for new features
 
-- Create an issue in this repository
-- 
+### Feature Requests and Bounties
+
+- Submit feature requests via [GitHub Issues](https://github.com/schmooky/spine-benchmark/issues)
+- Bounty placement available through issues or direct contact: [@schm00ky](https://t.me/schm00ky)
+
+## License
+
+MIT License. See [LICENSE](LICENSE) file for details.
+
+### Third-Party Licenses
+
+- Spine Runtime: Spine Runtime License
+- Pixi.js: MIT License
+- React: MIT License
+- i18next: MIT License

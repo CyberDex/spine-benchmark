@@ -20,7 +20,6 @@ class CommandRegistry {
   private maxRecentCommands = 10;
 
   register(command: Command): void {
-    console.log('📝 Registering command:', { id: command.id, title: command.title, category: command.category });
     this.commands.set(command.id, command);
   }
 
@@ -47,23 +46,17 @@ class CommandRegistry {
   }
 
   executeCommand(commandId: string): void {
-    console.log('⚡ Executing command:', commandId);
     const command = this.commands.get(commandId);
     if (command) {
-      console.log('✅ Command found:', { title: command.title, category: command.category });
       // Add to recent commands
       this.addToRecent(commandId);
       
       // Execute the command
       try {
         command.execute();
-        console.log('🎯 Command executed successfully');
       } catch (error) {
-        console.error('❌ Command execution failed:', error);
+        console.error('Command execution failed:', error);
       }
-    } else {
-      console.error('❌ Command not found:', commandId);
-      console.log('Available commands:', Array.from(this.commands.keys()));
     }
   }
 
@@ -173,9 +166,3 @@ class CommandRegistry {
 }
 
 export const commandRegistry = new CommandRegistry();
-
-// Expose to global scope for debugging
-if (typeof window !== 'undefined') {
-  (window as any).commandRegistry = commandRegistry;
-  console.log('🌍 Command registry exposed to window.commandRegistry for debugging');
-}

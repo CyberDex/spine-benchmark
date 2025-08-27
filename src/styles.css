@@ -118,7 +118,7 @@ body {
 
 .help-text {
     position: fixed;
-    bottom: 20px;
+    bottom: 80px;
     left: 50%;
     transform: translateX(-50%);
     background-color: rgba(0,0,0,.7);

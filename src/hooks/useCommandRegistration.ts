@@ -15,6 +15,7 @@ interface UseCommandRegistrationProps {
   toggleMeshes: () => void;
   togglePhysics: () => void;
   toggleIk: () => void;
+  cameraContainer?: any; // Add camera container reference
 }
 
 export function useCommandRegistration({
@@ -28,7 +29,8 @@ export function useCommandRegistration({
   ikVisible,
   toggleMeshes,
   togglePhysics,
-  toggleIk
+  toggleIk,
+  cameraContainer
 }: UseCommandRegistrationProps) {
   const { t } = useTranslation();
   
@@ -91,7 +93,223 @@ export function useCommandRegistration({
 
     // Debug Commands - only register if spine instance exists
     if (spineInstance) {
-      // Show/Hide Mesh Debug (includes attachment visualization)
+      // Bones Debug
+      commandRegistry.register({
+        id: 'debug.toggle-bones',
+        title: t('commands.debug.toggleBones', 'Toggle Bones'),
+        category: 'debug',
+        description: t('commands.debug.toggleBonesDescription', 'Show/hide bone structure'),
+        keywords: [t('commands.keywords.toggle'), 'bones', 'skeleton', 'debug', 'joints'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            console.log('Toggle Bones - Current flags:', flags);
+            console.log('Toggle Bones - showBones before:', flags.showBones);
+            cameraContainer.setDebugFlags({ showBones: !flags.showBones });
+            const newFlags = cameraContainer.getDebugFlags();
+            console.log('Toggle Bones - showBones after:', newFlags.showBones);
+          } else {
+            console.error('Toggle Bones - No camera container!');
+          }
+        }
+      });
+
+      // Mesh Debug (triangles and hull)
+      commandRegistry.register({
+        id: 'debug.toggle-meshes',
+        title: t('commands.debug.toggleMeshes', 'Toggle Meshes'),
+        category: 'debug',
+        description: t('commands.debug.toggleMeshesDescription', 'Show/hide mesh triangles and hulls'),
+        keywords: [t('commands.keywords.toggle'), 'mesh', 'triangles', 'hull', 'debug', 'vertices'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            const newValue = !flags.showMeshTriangles;
+            cameraContainer.setDebugFlags({ 
+              showMeshTriangles: newValue,
+              showMeshHull: newValue,
+              showVertices: newValue,
+              showRegionAttachments: newValue,
+              showBoundingBoxes: newValue,
+              showPaths: newValue,
+              showClipping: newValue
+            });
+          }
+        }
+      });
+
+      // Region Attachments Debug
+      commandRegistry.register({
+        id: 'debug.toggle-regions',
+        title: t('commands.debug.toggleRegions', 'Toggle Region Attachments'),
+        category: 'debug',
+        description: t('commands.debug.toggleRegionsDescription', 'Show/hide region attachment bounds'),
+        keywords: [t('commands.keywords.toggle'), 'region', 'attachments', 'debug', 'bounds'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showRegionAttachments: !flags.showRegionAttachments });
+          }
+        }
+      });
+
+      // Bounding Boxes Debug
+      commandRegistry.register({
+        id: 'debug.toggle-bounding-boxes',
+        title: t('commands.debug.toggleBoundingBoxes', 'Toggle Bounding Boxes'),
+        category: 'debug',
+        description: t('commands.debug.toggleBoundingBoxesDescription', 'Show/hide bounding boxes'),
+        keywords: [t('commands.keywords.toggle'), 'bounding', 'boxes', 'debug', 'collision'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showBoundingBoxes: !flags.showBoundingBoxes });
+          }
+        }
+      });
+
+      // Paths Debug
+      commandRegistry.register({
+        id: 'debug.toggle-paths',
+        title: t('commands.debug.togglePaths', 'Toggle Paths'),
+        category: 'debug',
+        description: t('commands.debug.togglePathsDescription', 'Show/hide path attachments'),
+        keywords: [t('commands.keywords.toggle'), 'paths', 'debug', 'curves'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showPaths: !flags.showPaths });
+          }
+        }
+      });
+
+      // Clipping Debug
+      commandRegistry.register({
+        id: 'debug.toggle-clipping',
+        title: t('commands.debug.toggleClipping', 'Toggle Clipping'),
+        category: 'debug',
+        description: t('commands.debug.toggleClippingDescription', 'Show/hide clipping masks'),
+        keywords: [t('commands.keywords.toggle'), 'clipping', 'masks', 'debug'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showClipping: !flags.showClipping });
+          }
+        }
+      });
+
+      // IK Constraints Debug
+      commandRegistry.register({
+        id: 'debug.toggle-ik-constraints',
+        title: t('commands.debug.toggleIkConstraints', 'Toggle IK Constraints'),
+        category: 'debug',
+        description: t('commands.debug.toggleIkConstraintsDescription', 'Show/hide IK constraints'),
+        keywords: [t('commands.keywords.toggle'), 'ik', 'constraints', 'debug', 'inverse', 'kinematics'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showIkConstraints: !flags.showIkConstraints });
+          }
+        }
+      });
+
+      // Transform Constraints Debug
+      commandRegistry.register({
+        id: 'debug.toggle-transform-constraints',
+        title: t('commands.debug.toggleTransformConstraints', 'Toggle Transform Constraints'),
+        category: 'debug',
+        description: t('commands.debug.toggleTransformConstraintsDescription', 'Show/hide transform constraints'),
+        keywords: [t('commands.keywords.toggle'), 'transform', 'constraints', 'debug'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showTransformConstraints: !flags.showTransformConstraints });
+          }
+        }
+      });
+
+      // Path Constraints Debug
+      commandRegistry.register({
+        id: 'debug.toggle-path-constraints',
+        title: t('commands.debug.togglePathConstraints', 'Toggle Path Constraints'),
+        category: 'debug',
+        description: t('commands.debug.togglePathConstraintsDescription', 'Show/hide path constraints'),
+        keywords: [t('commands.keywords.toggle'), 'path', 'constraints', 'debug'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showPathConstraints: !flags.showPathConstraints });
+          }
+        }
+      });
+
+      // Physics Constraints Debug
+      commandRegistry.register({
+        id: 'debug.toggle-physics-constraints',
+        title: t('commands.debug.togglePhysicsConstraints', 'Toggle Physics Constraints'),
+        category: 'debug',
+        description: t('commands.debug.togglePhysicsConstraintsDescription', 'Show/hide physics constraints'),
+        keywords: [t('commands.keywords.toggle'), 'physics', 'constraints', 'debug', 'simulation'],
+        execute: () => {
+          if (cameraContainer) {
+            const flags = cameraContainer.getDebugFlags();
+            cameraContainer.setDebugFlags({ showPhysics: !flags.showPhysics });
+          }
+        }
+      });
+
+      // Convenience commands for common debug combinations
+      commandRegistry.register({
+        id: 'debug.show-all',
+        title: t('commands.debug.showAll', 'Show All Debug'),
+        category: 'debug',
+        description: t('commands.debug.showAllDescription', 'Enable all debug visualizations'),
+        keywords: [t('commands.keywords.show'), 'all', 'debug', 'everything'],
+        execute: () => {
+          if (cameraContainer) {
+            cameraContainer.setDebugFlags({
+              showBones: true,
+              showRegionAttachments: true,
+              showMeshTriangles: true,
+              showMeshHull: true,
+              showBoundingBoxes: true,
+              showPaths: true,
+              showClipping: true,
+              showPhysics: true,
+              showIkConstraints: true,
+              showTransformConstraints: true,
+              showPathConstraints: true
+            });
+          }
+        }
+      });
+
+      commandRegistry.register({
+        id: 'debug.hide-all',
+        title: t('commands.debug.hideAll', 'Hide All Debug'),
+        category: 'debug',
+        description: t('commands.debug.hideAllDescription', 'Disable all debug visualizations'),
+        keywords: ['hide', 'all', 'debug', 'clear'],
+        execute: () => {
+          if (cameraContainer) {
+            cameraContainer.setDebugFlags({
+              showBones: false,
+              showRegionAttachments: false,
+              showMeshTriangles: false,
+              showMeshHull: false,
+              showBoundingBoxes: false,
+              showPaths: false,
+              showClipping: false,
+              showPhysics: false,
+              showIkConstraints: false,
+              showTransformConstraints: false,
+              showPathConstraints: false
+            });
+          }
+        }
+      });
+
+      // Legacy compatibility - use the convenience toggle functions
       if (!meshesVisible) {
         commandRegistry.register({
           id: 'debug.show-mesh',
@@ -112,7 +330,6 @@ export function useCommandRegistration({
         });
       }
 
-      // Show/Hide IK Controls Debug (using ikVisible state and toggleIk function)
       if (!ikVisible) {
         commandRegistry.register({
           id: 'debug.show-ik',
@@ -133,7 +350,6 @@ export function useCommandRegistration({
         });
       }
 
-      // Show/Hide Physics Debug (using physicsVisible state and togglePhysics function)
       if (!physicsVisible) {
         commandRegistry.register({
           id: 'debug.show-physics',
@@ -209,12 +425,23 @@ export function useCommandRegistration({
     console.log('✅ Language command registered successfully');
 
     // Cleanup function to unregister commands
-    // Cleanup function to unregister commands
     return () => {
       const commandIds = [
         'animation.play-pause',
         'animation.stop',
         'animation.restart',
+        'debug.toggle-bones',
+        'debug.toggle-meshes',
+        'debug.toggle-regions',
+        'debug.toggle-bounding-boxes',
+        'debug.toggle-paths',
+        'debug.toggle-clipping',
+        'debug.toggle-ik-constraints',
+        'debug.toggle-transform-constraints',
+        'debug.toggle-path-constraints',
+        'debug.toggle-physics-constraints',
+        'debug.show-all',
+        'debug.hide-all',
         'debug.show-mesh',
         'debug.hide-mesh',
         'debug.show-ik',
@@ -247,6 +474,7 @@ export function useCommandRegistration({
     toggleMeshes,
     togglePhysics,
     toggleIk,
+    cameraContainer,
     t
   ]);
 }
