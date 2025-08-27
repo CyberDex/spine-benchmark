@@ -10,12 +10,9 @@ export interface DebugFlags {
   showMeshHull: boolean;
   showVertices: boolean;
   showBoundingBoxes: boolean;
-  showPaths: boolean;
   showClipping: boolean;
-  showPhysics: boolean;
   showIkConstraints: boolean;
   showTransformConstraints: boolean;
-  showPathConstraints: boolean;
 }
 
 export class DebugRendererManager {
@@ -37,12 +34,9 @@ export class DebugRendererManager {
       showMeshHull: false,
       showVertices: false,
       showBoundingBoxes: false,
-      showPaths: false,
       showClipping: false,
-      showPhysics: false,
       showIkConstraints: false,
       showTransformConstraints: false,
-      showPathConstraints: false,
     };
 
     // Initialize debug layers
@@ -50,14 +44,12 @@ export class DebugRendererManager {
   }
 
   private initializeLayers(): void {
-    // Define all supported layer types
+    // Define all supported layer types (excluding physics and path constraints as requested)
     const layerTypes: DebugLayerType[] = [
       'bones', 
-      'pathConstraints', 
       'ikConstraints',
       'meshes',
-      'transformConstraints',
-      'physics'
+      'transformConstraints'
     ];
     
     // Create all layers using the factory
@@ -92,10 +84,6 @@ export class DebugRendererManager {
       this.layers.get('bones')?.update(this.currentSpine);
     }
 
-    if (this.flags.showPathConstraints) {
-      this.layers.get('pathConstraints')?.update(this.currentSpine);
-    }
-
     if (this.flags.showIkConstraints) {
       this.layers.get('ikConstraints')?.update(this.currentSpine);
     }
@@ -108,11 +96,6 @@ export class DebugRendererManager {
     // Update transform constraint layer
     if (this.flags.showTransformConstraints) {
       this.layers.get('transformConstraints')?.update(this.currentSpine);
-    }
-    
-    // Update physics constraint layer
-    if (this.flags.showPhysics) {
-      this.layers.get('physics')?.update(this.currentSpine);
     }
   }
 
@@ -129,9 +112,6 @@ export class DebugRendererManager {
         case 'bones':
           visible = this.flags.showBones;
           break;
-        case 'pathConstraints':
-          visible = this.flags.showPathConstraints;
-          break;
         case 'ikConstraints':
           visible = this.flags.showIkConstraints;
           break;
@@ -140,9 +120,6 @@ export class DebugRendererManager {
           break;
         case 'transformConstraints':
           visible = this.flags.showTransformConstraints;
-          break;
-        case 'physics':
-          visible = this.flags.showPhysics;
           break;
       }
       layer.setVisible(visible);
@@ -175,11 +152,6 @@ export class DebugRendererManager {
   }
 
   // Convenience methods for toggling specific debug features
-  public togglePathConstraints(visible?: boolean): void {
-    const newValue = visible ?? !this.flags.showPathConstraints;
-    this.setDebugFlags({ showPathConstraints: newValue });
-  }
-
   public toggleIkConstraints(visible?: boolean): void {
     const newValue = visible ?? !this.flags.showIkConstraints;
     this.setDebugFlags({ showIkConstraints: newValue });
@@ -193,15 +165,7 @@ export class DebugRendererManager {
       showVertices: newValue,
       showRegionAttachments: newValue,
       showBoundingBoxes: newValue,
-      showPaths: newValue,
       showClipping: newValue
-    });
-  }
-
-  public togglePhysics(visible?: boolean): void {
-    const newValue = visible ?? !this.flags.showPhysics;
-    this.setDebugFlags({
-      showPhysics: newValue
     });
   }
 

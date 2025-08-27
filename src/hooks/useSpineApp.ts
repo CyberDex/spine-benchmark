@@ -16,12 +16,9 @@ export interface DebugFlags {
   showMeshHull: boolean;
   showVertices: boolean;
   showBoundingBoxes: boolean;
-  showPaths: boolean;
   showClipping: boolean;
-  showPhysics: boolean;
   showIkConstraints: boolean;
   showTransformConstraints: boolean;
-  showPathConstraints: boolean;
 }
 
 export function useSpineApp(app: Application | null) {
@@ -42,10 +39,8 @@ export function useSpineApp(app: Application | null) {
   
   const { 
     meshesVisible, 
-    physicsVisible, 
     ikVisible, 
     toggleMeshes, 
-    togglePhysics, 
     toggleIk
   } = useDebugVisualizer();
   
@@ -106,12 +101,9 @@ export function useSpineApp(app: Application | null) {
       showVertices: false,
       showRegionAttachments: false,
       showBoundingBoxes: false,
-      showPaths: false,
       showClipping: false,
-      showPhysics: false,
       showIkConstraints: false,
-      showTransformConstraints: false,
-      showPathConstraints: false
+      showTransformConstraints: false
     });
     
   }, [spineInstance]);
@@ -124,13 +116,12 @@ export function useSpineApp(app: Application | null) {
       showMeshTriangles: meshesVisible,
       showMeshHull: meshesVisible,
       showRegionAttachments: meshesVisible,
-      showPhysics: physicsVisible,
       showIkConstraints: ikVisible
     });
     
     // Force update debug graphics
     cameraContainerRef.current.forceResetDebugGraphics();
-  }, [meshesVisible, physicsVisible, ikVisible]);
+  }, [meshesVisible, ikVisible]);
   
 
 
@@ -143,10 +134,8 @@ export function useSpineApp(app: Application | null) {
     setBackgroundImage,
     clearBackgroundImage,
     toggleMeshes,
-    togglePhysics,
     toggleIk,
     meshesVisible,
-    physicsVisible,
     ikVisible,
     cameraContainer: cameraContainerRef.current  // Add this
   };
