@@ -1,28 +1,22 @@
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
-import { MeshMetrics, GlobalMeshAnalysis } from "./analyzers/meshAnalyzer";
-import { ClippingMetrics, GlobalClippingAnalysis } from "./analyzers/clippingAnalyzer";
-import { BlendModeMetrics, GlobalBlendModeAnalysis } from "./analyzers/blendModeAnalyzer";
-import { SkeletonAnalysis } from "./analyzers/skeletonAnalyzer";
-import { ConstraintMetrics, GlobalPhysicsAnalysis } from "./analyzers/physicsAnalyzer";
-import { ActiveComponents } from "./utils/animationUtils";
-import {
+import { 
   analyzeSkeleton,
   analyzeGlobalData,
   analyzeAnimations,
   calculateStatistics,
   sortAnalyses,
   aggregateResults
-} from "./utils/analysisUtils";
+} from "./analysis/animationAnalysis";
 
 export interface AnimationAnalysis {
   name: string;
   duration: number;
   overallScore: number;
-  meshMetrics: MeshMetrics;
-  clippingMetrics: ClippingMetrics;
-  blendModeMetrics: BlendModeMetrics;
-  constraintMetrics: ConstraintMetrics;
-  activeComponents: ActiveComponents;
+  meshMetrics: any; // Will be properly typed later
+  clippingMetrics: any; // Will be properly typed later
+  blendModeMetrics: any; // Will be properly typed later
+  constraintMetrics: any; // Will be properly typed later
+  activeComponents: any; // Will be properly typed later
 }
 
 export interface SpineAnalysisResult {
@@ -32,16 +26,16 @@ export interface SpineAnalysisResult {
   totalSkins: number;
   
   // Skeleton analysis
-  skeleton: SkeletonAnalysis;
+  skeleton: any; // Will be properly typed later
   
   // Per-animation analyses
   animations: AnimationAnalysis[];
   
   // Global analyses
-  globalMesh: GlobalMeshAnalysis;
-  globalClipping: GlobalClippingAnalysis;
-  globalBlendMode: GlobalBlendModeAnalysis;
-  globalPhysics: GlobalPhysicsAnalysis;
+  globalMesh: any; // Will be properly typed later
+  globalClipping: any; // Will be properly typed later
+  globalBlendMode: any; // Will be properly typed later
+  globalPhysics: any; // Will be properly typed later
   
   // Aggregate scores
   medianScore: number;
@@ -54,7 +48,6 @@ export interface SpineAnalysisResult {
     animationsWithClipping: number;
     animationsWithBlendModes: number;
     animationsWithIK: number;
-    animationsWithTransform: number;
     animationsWithPath: number;
     highVertexAnimations: number; // >500 vertices
     poorPerformingAnimations: number; // score < 55

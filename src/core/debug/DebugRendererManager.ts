@@ -2,49 +2,20 @@ import { Container, Application } from 'pixi.js';
 import { Spine } from '@esotericsoftware/spine-pixi-v8';
 import { DebugLayer } from './DebugLayer';
 import { DebugLayerFactory, DebugLayerType } from './DebugLayerFactory';
-
-export interface DebugFlags {
-  showBones: boolean;
-  showRegionAttachments: boolean;
-  showMeshTriangles: boolean;
-  showMeshHull: boolean;
-  showVertices: boolean;
-  showBoundingBoxes: boolean;
-  showPaths: boolean;
-  showClipping: boolean;
-  showPhysics: boolean;
-  showIkConstraints: boolean;
-  showTransformConstraints: boolean;
-  showPathConstraints: boolean;
-}
+import { DebugFlagsManager, DebugFlags } from './DebugFlagsManager';
 
 export class DebugRendererManager {
   private app: Application;
   private container: Container;
   private layers: Map<string, DebugLayer> = new Map();
-  private flags: DebugFlags;
+  private flagsManager: DebugFlagsManager;
   private currentSpine: Spine | null = null;
 
   constructor(app: Application) {
     this.app = app;
     this.container = new Container();
+    this.flagsManager = new DebugFlagsManager();
     
-    // Initialize default flags - all debug visualizations disabled by default
-    this.flags = {
-      showBones: false,
-      showRegionAttachments: false,
-      showMeshTriangles: false,
-      showMeshHull: false,
-      showVertices: false,
-      showBoundingBoxes: false,
-      showPaths: false,
-      showClipping: false,
-      showPhysics: false,
-      showIkConstraints: false,
-      showTransformConstraints: false,
-      showPathConstraints: false,
-    };
-
     // Initialize debug layers
     this.initializeLayers();
   }
@@ -67,7 +38,6 @@ export class DebugRendererManager {
           DebugLayerFactory.getDefaultOptions(type, this.app));
         this.layers.set(type, layer);
         this.container.addChild(layer.getContainer());
-        console.log(`DebugRendererManager: Created ${type} layer`);
       } catch (error) {
         console.warn(`DebugRendererManager: Failed to create ${type} layer:`, error);
       }
@@ -87,76 +57,51 @@ export class DebugRendererManager {
 
   public update(): void {
     // Update each layer based on its flag
-    if (this.flags.showBones) {
-      console.log('DebugRendererManager: Updating bones layer');
+    if (this.flagsManager.isLayerVisible('bones')) {
       this.layers.get('bones')?.update(this.currentSpine);
     }
 
-    if (this.flags.showPathConstraints) {
+    if (this.flagsManager.isLayerVisible('pathConstraints')) {
       this.layers.get('pathConstraints')?.update(this.currentSpine);
     }
 
-    if (this.flags.showIkConstraints) {
+    if (this.flagsManager.isLayerVisible('ikConstraints')) {
       this.layers.get('ikConstraints')?.update(this.currentSpine);
     }
 
     // Update mesh layers based on their flags
-    if (this.flags.showMeshTriangles || this.flags.showMeshHull || this.flags.showVertices) {
+    if (this.flagsManager.isLayerVisible('meshes')) {
       this.layers.get('meshes')?.update(this.currentSpine);
     }
     
     // Update transform constraint layer
-    if (this.flags.showTransformConstraints) {
+    if (this.flagsManager.isLayerVisible('transformConstraints')) {
       this.layers.get('transformConstraints')?.update(this.currentSpine);
     }
     
     // Update physics constraint layer
-    if (this.flags.showPhysics) {
+    if (this.flagsManager.isLayerVisible('physics')) {
       this.layers.get('physics')?.update(this.currentSpine);
     }
   }
 
   public setDebugFlags(flags: Partial<DebugFlags>): void {
-    console.log('DebugRendererManager.setDebugFlags:', flags);
-    this.flags = { ...this.flags, ...flags };
-    // console.log('DebugRendererManager flags after update:', this.flags);
-
+    this.flagsManager.setDebugFlags(flags);
+    
     // Update layer visibility based on flags
     this.layers.forEach((layer, type) => {
-      // Map debug flags to layer visibility
-      let visible = false;
-      switch(type) {
-        case 'bones':
-          visible = this.flags.showBones;
-          break;
-        case 'pathConstraints':
-          visible = this.flags.showPathConstraints;
-          break;
-        case 'ikConstraints':
-          visible = this.flags.showIkConstraints;
-          break;
-        case 'meshes':
-          visible = this.flags.showMeshTriangles || this.flags.showMeshHull || this.flags.showVertices;
-          break;
-        case 'transformConstraints':
-          visible = this.flags.showTransformConstraints;
-          break;
-        case 'physics':
-          visible = this.flags.showPhysics;
-          break;
-      }
+      const visible = this.flagsManager.isLayerVisible(type);
       layer.setVisible(visible);
     });
 
     // Force update if we have a spine
     if (this.currentSpine) {
-      console.log('DebugRendererManager: Forcing update with spine');
       this.update();
     }
   }
 
   public getDebugFlags(): DebugFlags {
-    return { ...this.flags };
+    return this.flagsManager.getDebugFlags();
   }
 
   public clearAll(): void {
@@ -176,39 +121,27 @@ export class DebugRendererManager {
 
   // Convenience methods for toggling specific debug features
   public togglePathConstraints(visible?: boolean): void {
-    const newValue = visible ?? !this.flags.showPathConstraints;
-    this.setDebugFlags({ showPathConstraints: newValue });
+    this.flagsManager.togglePathConstraints(visible);
+    this.setDebugFlags(this.flagsManager.getDebugFlags());
   }
 
   public toggleIkConstraints(visible?: boolean): void {
-    const newValue = visible ?? !this.flags.showIkConstraints;
-    this.setDebugFlags({ showIkConstraints: newValue });
+    this.flagsManager.toggleIkConstraints(visible);
+    this.setDebugFlags(this.flagsManager.getDebugFlags());
   }
 
   public toggleMeshes(visible?: boolean): void {
-    const newValue = visible ?? !this.flags.showMeshTriangles;
-    this.setDebugFlags({
-      showMeshTriangles: newValue,
-      showMeshHull: newValue,
-      showVertices: newValue,
-      showRegionAttachments: newValue,
-      showBoundingBoxes: newValue,
-      showPaths: newValue,
-      showClipping: newValue
-    });
+    this.flagsManager.toggleMeshes(visible);
+    this.setDebugFlags(this.flagsManager.getDebugFlags());
   }
 
   public togglePhysics(visible?: boolean): void {
-    const newValue = visible ?? !this.flags.showPhysics;
-    this.setDebugFlags({
-      showPhysics: newValue
-    });
+    this.flagsManager.togglePhysics(visible);
+    this.setDebugFlags(this.flagsManager.getDebugFlags());
   }
 
   public toggleTransformConstraints(visible?: boolean): void {
-    const newValue = visible ?? !this.flags.showTransformConstraints;
-    this.setDebugFlags({
-      showTransformConstraints: newValue
-    });
+    this.flagsManager.toggleTransformConstraints(visible);
+    this.setDebugFlags(this.flagsManager.getDebugFlags());
   }
 }

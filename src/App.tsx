@@ -9,14 +9,16 @@ import { CommandPalette } from './components/CommandPalette';
 import { VersionDisplay } from './components/VersionDisplay';
 import { LanguageModal } from './components/LanguageModal';
 import { BenchmarkPanel } from './components/BenchmarkPanel';
+import { DropZone } from './components/DropZone';
 import { useToast } from './hooks/ToastContext';
 import { useSafeLocalStorage } from './hooks/useSafeLocalStorage';
 import { useSpineApp } from './hooks/useSpineApp';
 import { useCommandRegistration } from './hooks/useCommandRegistration';
 import { useUrlHash } from './hooks/useUrlHash';
+import { useFileProcessor } from './hooks/useFileProcessor';
+import { useAppEventHandlers } from './hooks/useAppEventHandlers';
 import { commandRegistry } from './utils/commandRegistry';
 import { FileProcessor } from './core/utils/fileProcessor';
-
 
 // URL Input Modal Component
 const UrlInputModal: React.FC<{
@@ -102,6 +104,9 @@ const App: React.FC = () => {
   const [currentAnimation, setCurrentAnimation] = useState('');
   const { addToast } = useToast();
   const { updateHash, getStateFromHash, onHashChange } = useUrlHash();
+  const { collectFilesFromDataTransfer } = useFileProcessor();
+  const { handleKeyDown, handleContextMenu, handleWheel } = useAppEventHandlers();
+  
   const {
     spineInstance,
     loadSpineFiles,
@@ -191,6 +196,44 @@ const App: React.FC = () => {
       updateHash({ benchmarkInfo: showBenchmark });
     }
   }, [showBenchmark, updateHash, getStateFromHash]);
+
+  // Handle global keyboard events
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
+
+  // Handle context menu
+  useEffect(() => {
+    window.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, [handleContextMenu]);
+
+  // Handle wheel events
+  useEffect(() => {
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel]);
+
+  // Handle file drop
+  const handleFilesDrop = useCallback(async (files: FileList) => {
+    try {
+      setIsLoading(true);
+      await loadSpineFiles(files);
+      addToast(t('success.filesLoaded', 'Files loaded successfully'), 'success');
+    } catch (error) {
+      console.error('Error handling Spine files:', error);
+      addToast(t('error.failedToLoadFiles', { error: (error as any).message }), 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadSpineFiles, addToast, t]);
 
   useEffect(() => {
     if (!canvasRef.current) return;

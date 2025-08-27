@@ -5,7 +5,6 @@ import { ActiveComponents } from "../utils/animationUtils";
 
 export interface MeshMetrics {
   activeMeshCount: number;
-  totalMeshCount: number; // For compatibility
   totalVertices: number;
   weightedMeshCount: number;
   deformedMeshCount: number;
@@ -105,7 +104,6 @@ export function analyzeMeshesForAnimation(
   // Calculate mesh complexity metrics
   const meshComplexityMetrics: MeshMetrics = {
     activeMeshCount,
-    totalMeshCount: activeMeshCount,
     totalVertices,
     weightedMeshCount,
     deformedMeshCount,
@@ -199,7 +197,6 @@ export function analyzeGlobalMeshes(spineInstance: Spine): GlobalMeshAnalysis {
   // Calculate mesh complexity metrics for performance score
   const metrics: MeshMetrics = {
     activeMeshCount: totalMeshCount,
-    totalMeshCount,
     totalVertices,
     weightedMeshCount,
     deformedMeshCount,

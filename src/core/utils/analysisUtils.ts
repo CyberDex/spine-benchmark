@@ -1,36 +1,22 @@
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
 import { 
-  analyzeMeshesForAnimation, 
-  analyzeGlobalMeshes,
-  MeshMetrics,
-  GlobalMeshAnalysis 
-} from "../analyzers/meshAnalyzer";
-import { 
-  analyzeClippingForAnimation,
-  analyzeGlobalClipping,
-  ClippingMetrics,
-  GlobalClippingAnalysis
-} from "../analyzers/clippingAnalyzer";
-import { 
-  analyzeBlendModesForAnimation,
-  analyzeGlobalBlendModes,
-  BlendModeMetrics,
-  GlobalBlendModeAnalysis
-} from "../analyzers/blendModeAnalyzer";
-import { 
-  analyzeSkeletonStructure,
-  SkeletonAnalysis,
-  SkeletonMetrics
-} from "../analyzers/skeletonAnalyzer";
-import { 
-  analyzePhysicsForAnimation,
-  analyzeGlobalPhysics,
-  ConstraintMetrics,
-  GlobalPhysicsAnalysis
-} from "../analyzers/physicsAnalyzer";
-import { calculateOverallScore } from "./scoreCalculator";
-import { getActiveComponentsForAnimation, ActiveComponents } from "./animationUtils";
-import { AnimationAnalysis, SpineAnalysisResult } from "../SpineAnalyzer";
+  analyzeSkeleton,
+  analyzeGlobalData,
+  analyzeAnimations,
+  calculateStatistics,
+  sortAnalyses,
+  aggregateResults
+} from "../analysis/animationAnalysis";
+
+// Export all functions for backward compatibility
+export {
+  analyzeSkeleton,
+  analyzeGlobalData,
+  analyzeAnimations,
+  calculateStatistics,
+  sortAnalyses,
+  aggregateResults
+};
 
 /**
  * Analysis Utilities - Utility functions for decomposing complex analysis operations
