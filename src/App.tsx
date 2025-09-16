@@ -114,12 +114,12 @@ const App: React.FC = () => {
     isLoading: spineLoading,
     benchmarkData,
     meshesVisible,
-    physicsVisible,
     ikVisible,
     toggleMeshes,
-    togglePhysics,
     toggleIk,
-    cameraContainer  // Add this
+    cameraContainer,
+    physicsVisible,
+    togglePhysics,
   } = useSpineApp(app);
 
   // Check for URL parameters on mount - Enhanced version

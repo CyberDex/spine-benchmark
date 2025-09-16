@@ -112,7 +112,7 @@ const GlobalBlendModeDetails: React.FC<{ data: SpineAnalysisResult }> = ({ data 
           </tr>
         </thead>
         <tbody>
-          {Array.from(slotsWithNonNormalBlendMode.entries()).map(([slotName, mode]) => (
+          {Array.from(slotsWithNonNormalBlendMode.entries() as IterableIterator<[string, BlendMode]>).map(([slotName, mode]) => (
             <tr key={slotName}>
               <td>{slotName}</td>
               <td>{BlendMode[mode]}</td>
