@@ -24,6 +24,7 @@ export interface DebugFlags {
 export function useSpineApp(app: Application | null) {
   const { i18n } = useTranslation();
   const [benchmarkData, setBenchmarkData] = useState<SpineAnalysisResult | null>(null);
+  const [physicsVisible, togglePhysics] = useState(false);
   
   const cameraContainerRef = useRef<CameraContainer | null>(null);
   const previousSpineInstanceRef = useRef<Spine | null>(null);
@@ -154,6 +155,8 @@ export function useSpineApp(app: Application | null) {
     toggleIk,
     meshesVisible,
     ikVisible,
-    cameraContainer: cameraContainerRef.current
+    cameraContainer: cameraContainerRef.current,
+    physicsVisible: physicsVisible, 
+    togglePhysics: () => togglePhysics(!physicsVisible),
   };
 }

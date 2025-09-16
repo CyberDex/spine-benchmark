@@ -1,7 +1,8 @@
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
 import gsap from "gsap";
 import { Application, Container } from "pixi.js";
-import { DebugRendererManager, DebugFlags } from './debug/DebugRendererManager';
+import { DebugRendererManager } from './debug/DebugRendererManager';
+import { DebugFlags } from './debug/DebugFlagsManager';
 
 export class CameraContainer extends Container {
   originalWidth: number;
@@ -101,7 +102,7 @@ export class CameraContainer extends Container {
     
     // Remove debug container from previous spine if exists
     if (this.debugRenderer.getContainer().parent) {
-      this.debugRenderer.getContainer().parent.removeChild(this.debugRenderer.getContainer());
+      this.debugRenderer.getContainer().parent?.removeChild(this.debugRenderer.getContainer());
     }
     
     // Add debug container AFTER the spine to ensure it renders on top
@@ -186,7 +187,7 @@ export class CameraContainer extends Container {
   public override destroy(): void {
     window.removeEventListener("resize", this.onResize);
     if (this.debugRenderer.getContainer().parent) {
-      this.debugRenderer.getContainer().parent.removeChild(this.debugRenderer.getContainer());
+      this.debugRenderer.getContainer().parent?.removeChild(this.debugRenderer.getContainer());
     }
     this.debugRenderer.destroy();
     super.destroy();

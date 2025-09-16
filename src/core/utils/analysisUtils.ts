@@ -1,22 +1,12 @@
+import { analyzeBlendModesForAnimation, analyzeGlobalBlendModes, GlobalBlendModeAnalysis } from "@/core/analyzers/blendModeAnalyzer";
+import { analyzeClippingForAnimation, analyzeGlobalClipping, GlobalClippingAnalysis } from "@/core/analyzers/clippingAnalyzer";
+import { analyzeGlobalMeshes, analyzeMeshesForAnimation, GlobalMeshAnalysis } from "@/core/analyzers/meshAnalyzer";
+import { analyzeGlobalPhysics, analyzePhysicsForAnimation, GlobalPhysicsAnalysis } from "@/core/analyzers/physicsAnalyzer";
+import { analyzeSkeletonStructure, type SkeletonAnalysis } from "@/core/analyzers/skeletonAnalyzer";
+import { AnimationAnalysis, SpineAnalysisResult } from "@/core/SpineAnalyzer";
+import { getActiveComponentsForAnimation } from "@/core/utils/animationUtils";
+import { calculateOverallScore } from "@/core/utils/scoreCalculator";
 import { Spine } from "@esotericsoftware/spine-pixi-v8";
-import { 
-  analyzeSkeleton,
-  analyzeGlobalData,
-  analyzeAnimations,
-  calculateStatistics,
-  sortAnalyses,
-  aggregateResults
-} from "../analysis/animationAnalysis";
-
-// Export all functions for backward compatibility
-export {
-  analyzeSkeleton,
-  analyzeGlobalData,
-  analyzeAnimations,
-  calculateStatistics,
-  sortAnalyses,
-  aggregateResults
-};
 
 /**
  * Analysis Utilities - Utility functions for decomposing complex analysis operations

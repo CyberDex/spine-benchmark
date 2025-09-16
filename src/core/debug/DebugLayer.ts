@@ -44,7 +44,7 @@ export abstract class DebugLayer {
     this.graphics.clear();
   }
 
-  public abstract update(spine: Spine): void;
+  public abstract update(spine: Spine | null): void;
 
   // Viewport culling helpers
   protected get screenRect() {

@@ -7,6 +7,7 @@ import {
   sortAnalyses,
   aggregateResults
 } from "./analysis/animationAnalysis";
+import { GlobalClippingAnalysis } from "@/core/analyzers/clippingAnalyzer";
 
 export interface AnimationAnalysis {
   name: string;
@@ -33,7 +34,7 @@ export interface SpineAnalysisResult {
   
   // Global analyses
   globalMesh: any; // Will be properly typed later
-  globalClipping: any; // Will be properly typed later
+  globalClipping: GlobalClippingAnalysis; // Will be properly typed later
   globalBlendMode: any; // Will be properly typed later
   globalPhysics: any; // Will be properly typed later
   
